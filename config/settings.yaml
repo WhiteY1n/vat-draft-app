@@ -1,0 +1,41 @@
+# Cấu hình trung tâm cho web app tối ưu nháp VAT.
+# Mọi quy tắc có khả năng thay đổi phải nằm ở đây, không hard-code trong code.
+
+auth_mode: none  # none | google (có thể override bằng biến môi trường AUTH_MODE)
+
+allowed_emails: []
+admin_emails: []
+
+max_versions_kept: 14
+
+gia_nhap_decimal_places: 2
+
+# Giả định an toàn: nghiệp vụ hiện tại không cho phép SL lẻ (số nguyên dương).
+# Có thể bật lại nếu nghiệp vụ cho phép số lẻ.
+allow_fractional_sl: false
+
+# Thứ tự ưu tiên nguồn khi các tiêu chí đếm coverage bằng nhau (chỉ là tie-breaker).
+source_tiebreak_priority:
+  - "Vận chuyển"
+  - "MAY"
+  - "SAIGONHANOI"
+  - "CAO"
+  - "Thấp"
+
+# Trọng số so khớp tên kế toán (mục 10.1 CLAUDE.md). Tổng 4 trọng số nên bằng 1.0.
+name_match_weights:
+  weight_user_ten_sp: 0.45
+  weight_khopma_ten_sp: 0.25
+  weight_ten_vat_kiot: 0.20
+  weight_ten_truoc_vat: 0.10
+
+  # Điểm thưởng/phạt cộng thêm sau khi tính điểm trọng số theo RapidFuzz (thang 0-100).
+  number_token_bonus: 8.0
+  size_token_bonus: 6.0
+  number_conflict_penalty: 25.0
+  variant_conflict_penalty: 15.0
+
+  # Ngưỡng điểm để đánh dấu "cần kiểm tra tên thủ công" (trang Kiểm tra dữ liệu).
+  review_threshold: 55.0
+
+local_storage_root: data/local_storage
