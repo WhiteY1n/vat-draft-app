@@ -5,3 +5,11 @@ enableXsrfProtection = true
 
 [theme]
 base = "light"
+primaryColor = "#2563EB"
+backgroundColor = "#F6F8FB"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#1F2937"
+font = "sans serif"
+
+[client]
+showSidebarNavigation = false
