@@ -1,5 +1,11 @@
 from src.config import AppConfig
-from src.source_lookup import SourceLookupInput, build_grouped_display_rows, lookup_sources
+from src.source_lookup import (
+    SourceLookupInput,
+    build_all_sources_display_rows,
+    build_grouped_display_rows,
+    lookup_all_sources,
+    lookup_sources,
+)
 
 from tests.factories import make_mapping_row, make_stock_row
 
@@ -207,3 +213,59 @@ def test_display_rows_have_exact_invoice_columns_and_calculated_draft_price():
     assert rows[0]["SL"] == 100
     assert rows[0]["Giá bán"] == 11500
     assert rows[0]["GIÁ NHÁP (Giá bán/(1+%VAT))"] == 10648.15
+
+
+def test_all_sources_excludes_non_positive_and_sorts_low_stock_first():
+    mappings = [make_mapping_row(2, "BTT8422", "Bông tẩy trang", "VAT10636")]
+    stocks = [
+        make_stock_row(2, "CAO", "VAT10636", "Bông tẩy trang", "Túi", 11403),
+        make_stock_row(3, "MAY", "VAT10636", "Bông tẩy trang Hatsu", "Gói", 50),
+        make_stock_row(4, "MAY", "VAT10636", "Bông tẩy trang", "Cái", 1),
+        make_stock_row(5, "MAY", "VAT10636", "Hết tồn", "Gói", 0),
+        make_stock_row(6, "CAO", "VAT10636", "Âm tồn", "Gói", -2),
+    ]
+
+    result = lookup_all_sources(
+        [SourceLookupInput(1, ma_sp="BTT8422", sl=100, gia_ban=11500)],
+        mappings,
+        stocks,
+        config=_config(),
+    )
+
+    assert not result.issues
+    assert [line.ton_con_nhap for line in result.lines] == [1, 50, 11403]
+    assert result.skipped_non_positive_stock_count == 2
+
+
+def test_all_sources_display_blanks_repeated_input_columns():
+    mappings = [make_mapping_row(2, "SP01", "Sản phẩm 1", "VAT01")]
+    stocks = [
+        make_stock_row(2, "MAY", "VAT01", "KT1", "Cái", 5),
+        make_stock_row(3, "CAO", "VAT01", "KT2", "Gói", 10),
+    ]
+    result = lookup_all_sources(
+        [SourceLookupInput(1, ma_sp="SP01", sl=3, gia_ban=1000)],
+        mappings,
+        stocks,
+    )
+
+    rows = build_all_sources_display_rows(result.lines)
+
+    assert list(rows[0]) == [
+        "Mã kiot",
+        "Tên kiot",
+        "SL",
+        "Giá bán",
+        "Mã VAT",
+        "Tên VAT",
+        "Mã kế toán",
+        "ĐVT",
+        "Nguồn",
+        "Tồn nháp được",
+        "%VAT",
+    ]
+    assert rows[0]["Mã kiot"] == "SP01"
+    assert rows[1]["Mã kiot"] == ""
+    assert rows[1]["Tên kiot"] == ""
+    assert rows[1]["SL"] == ""
+    assert rows[1]["Giá bán"] == ""

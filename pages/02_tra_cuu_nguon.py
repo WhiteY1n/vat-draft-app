@@ -9,7 +9,11 @@ import streamlit as st
 
 from src.auth import get_current_user
 from src.session import get_config, get_current_version_metadata, get_current_workbook
-from src.source_lookup import SourceLookupInput, build_grouped_display_rows, lookup_sources
+from src.source_lookup import (
+    SourceLookupInput,
+    build_all_sources_display_rows,
+    lookup_all_sources,
+)
 from ui import (
     apply_global_styles,
     render_action_bar,
@@ -99,7 +103,7 @@ if lookup_clicked:
             )
 
         if queries:
-            result = lookup_sources(
+            result = lookup_all_sources(
                 queries, workbook.mapping_rows, workbook.stock_rows, config=config
             )
             st.session_state["source_lookup_result"] = result
@@ -110,7 +114,10 @@ if lookup_clicked:
         st.session_state.pop("source_lookup_result", None)
 
 if result is not None:
-    render_section_header("Kết quả tra cứu nguồn")
+    render_section_header(
+        "Kết quả tra cứu nguồn",
+        "Chỉ hiện nguồn có tồn nháp dương; trong từng sản phẩm, tồn ít được xếp trước.",
+    )
 
     if result.issues:
         render_section_header("Các dòng cần kiểm tra")
@@ -139,28 +146,25 @@ if result is not None:
         )
 
     if result.lines:
-        result_df = pd.DataFrame(build_grouped_display_rows(result.lines))
+        result_df = pd.DataFrame(build_all_sources_display_rows(result.lines)).fillna("")
         with st.container(key="result-highlight"):
             st.dataframe(
                 result_df,
-                use_container_width=True,
+                width="stretch",
                 height=440,
                 hide_index=True,
                 column_config={
-                    "MÃ SP": st.column_config.TextColumn(width="medium"),
-                    "TÊN SP": st.column_config.TextColumn(width="large"),
-                    "SL": st.column_config.NumberColumn(width="small", format="%.0f"),
-                    "Giá bán": st.column_config.NumberColumn(width="small", format="%.0f"),
-                    "Mã VAT": st.column_config.TextColumn(width="medium"),
-                    "TÊN VAT": st.column_config.TextColumn(width="large"),
-                    "TÊN KẾ TOÁN": st.column_config.TextColumn(width="large"),
-                    "ĐVT": st.column_config.TextColumn(width="small"),
-                    "NGUỒN": st.column_config.TextColumn(width="medium"),
-                    "TỒN CÒN NHÁP": st.column_config.NumberColumn(width="medium", format="%.0f"),
-                    "%VAT": st.column_config.NumberColumn(width="small", format="%.0f%%"),
-                    "GIÁ NHÁP (Giá bán/(1+%VAT))": st.column_config.NumberColumn(
-                        width="medium", format="%.0f"
-                    ),
+                    "Mã kiot": st.column_config.TextColumn(width=74),
+                    "Tên kiot": st.column_config.TextColumn(width=190),
+                    "SL": st.column_config.NumberColumn(width=48, format="%.0f"),
+                    "Giá bán": st.column_config.NumberColumn(width=64, format="%.0f"),
+                    "Mã VAT": st.column_config.TextColumn(width=72),
+                    "Tên VAT": st.column_config.TextColumn(width=185),
+                    "Mã kế toán": st.column_config.TextColumn(width=170),
+                    "ĐVT": st.column_config.TextColumn(width=48),
+                    "Nguồn": st.column_config.TextColumn(width=62),
+                    "Tồn nháp được": st.column_config.NumberColumn(width=72, format="%.0f"),
+                    "%VAT": st.column_config.NumberColumn(width=48, format="%.0f%%"),
                 },
             )
 

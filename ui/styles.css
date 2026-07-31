@@ -185,6 +185,21 @@ h1 {
   text-overflow: ellipsis;
 }
 
+.data-status-inline__file {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.data-status-inline__updated {
+  flex: 0 0 auto;
+  padding-left: 0.55rem;
+  border-left: 1px solid var(--app-border);
+  color: var(--app-muted);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .data-status-inline--missing {
   color: var(--app-muted);
 }
@@ -215,9 +230,34 @@ h1 {
   }
 }
 
-/* Nút popover gọn (Cập nhật dữ liệu, Quản trị): hình vuông, chỉ icon */
-[class*="st-key-upload-popover-"] > div > button,
-[class*="st-key-admin-popover-"] > div > button {
+/* Cập nhật dữ liệu là thao tác chính: nhãn rõ, vùng bấm lớn và tương phản cao. */
+[class*="st-key-upload-popover-"] [data-testid="stPopoverButton"] {
+  width: 100%;
+  min-height: 2.75rem;
+  border-radius: 10px;
+  padding: 0.55rem 0.85rem;
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+  font-weight: 700;
+  white-space: nowrap;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.2);
+}
+
+[class*="st-key-upload-popover-"] [data-testid="stPopoverButton"]:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #ffffff;
+}
+
+[class*="st-key-upload-popover-"] [data-testid="stPopoverButton"]:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.28);
+  outline-offset: 2px;
+}
+
+/* Quản trị vẫn là thao tác phụ dạng icon gọn. */
+[class*="st-key-admin-popover-"] [data-testid="stPopoverButton"] {
   width: 2.65rem;
   height: 2.65rem;
   border-radius: 10px;

@@ -6,6 +6,8 @@ Excel). Điều hướng và trạng thái dữ liệu gói gọn trong một th
 
 from __future__ import annotations
 
+from datetime import datetime
+from html import escape
 import os
 import tempfile
 
@@ -28,6 +30,18 @@ ADMIN_PAGES: list[tuple[str, str, str]] = [
 ]
 
 
+def _format_uploaded_at(uploaded_at: str) -> str:
+    """Định dạng thời điểm cập nhật để hiển thị nhất quán trên thanh trạng thái."""
+
+    try:
+        parsed = datetime.fromisoformat(uploaded_at.replace("Z", "+00:00"))
+        if parsed.tzinfo is not None:
+            parsed = parsed.astimezone()
+        return parsed.strftime("%d/%m/%Y %H:%M")
+    except ValueError:
+        return uploaded_at
+
+
 def _render_admin_popover(*, key: str) -> None:
     with st.popover("⚙️", help="Quản trị", key=key):
         st.caption("QUẢN TRỊ")
@@ -36,7 +50,7 @@ def _render_admin_popover(*, key: str) -> None:
 
 
 def _render_upload_popover(*, config, user, key: str) -> None:
-    with st.popover("📤", help="Cập nhật dữ liệu", key=key):
+    with st.popover("📤 Cập nhật dữ liệu", help="Tải lên và dùng file Excel mới", key=key):
         st.markdown("**Cập nhật dữ liệu hiện tại**")
         if user is None or user.role != Role.ADMIN:
             st.caption(
@@ -90,7 +104,7 @@ def render_feature_top_bar(
     other_page, other_title, other_icon = FEATURE_PAGES[other_key]
 
     title_col, switch_col, status_col, upload_col, admin_col = st.columns(
-        [3.2, 1.7, 2.4, 0.4, 0.4], gap="small"
+        [2.8, 1.95, 3.05, 1.4, 0.4], gap="small"
     )
     with title_col:
         st.markdown(f"## {icon} {title}")
@@ -99,8 +113,14 @@ def render_feature_top_bar(
             st.page_link(other_page, label=f"Chuyển sang {other_title}", icon=other_icon)
     with status_col:
         if meta is not None:
+            updated_at = _format_uploaded_at(meta.uploaded_at)
             st.markdown(
-                f"<div class='data-status-inline'>🟢 <b>{meta.original_file_name}</b></div>",
+                "<div class='data-status-inline'>"
+                "<span aria-hidden='true'>🟢</span>"
+                f"<b class='data-status-inline__file' title='{escape(meta.original_file_name)}'>"
+                f"{escape(meta.original_file_name)}</b>"
+                f"<span class='data-status-inline__updated'>Cập nhật {escape(updated_at)}</span>"
+                "</div>",
                 unsafe_allow_html=True,
             )
         else:

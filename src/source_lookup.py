@@ -290,6 +290,152 @@ def lookup_sources(
     return result
 
 
+def lookup_all_sources(
+    queries: list[SourceLookupInput],
+    mapping_rows: list[MappingRow],
+    stock_rows: list[StockRow],
+    config: AppConfig | None = None,
+) -> SourceLookupResult:
+    """Trả toàn bộ nguồn còn tồn dương cho từng input, tồn ít đứng trước.
+
+    Hàm này dành riêng cho trang Tra cứu nguồn. Khác với ``lookup_sources``
+    dùng ở trang Xử lý hóa đơn, hàm không chọn một nguồn đại diện và không giữ
+    dòng tồn bằng 0/âm.
+    """
+
+    config = config or AppConfig()
+    result = SourceLookupResult()
+    mappings_by_code: dict[str, list[MappingRow]] = {}
+    mappings_by_name: dict[str, list[MappingRow]] = {}
+    stock_by_vat: dict[str, list[StockRow]] = {}
+
+    for mapping in mapping_rows:
+        if mapping.ma_sp_norm:
+            mappings_by_code.setdefault(mapping.ma_sp_norm, []).append(mapping)
+        name_norm = normalize_code_for_match(mapping.ten_sp)
+        if name_norm:
+            mappings_by_name.setdefault(name_norm, []).append(mapping)
+
+    for stock in stock_rows:
+        if not stock.ma_vat_kiot_norm:
+            continue
+        if stock.ton_co_the_nhap <= 0:
+            result.skipped_non_positive_stock_count += 1
+            continue
+        stock_by_vat.setdefault(stock.ma_vat_kiot_norm, []).append(stock)
+
+    for query in queries:
+        ma_sp = normalize_code(query.ma_sp)
+        ten_sp = normalize_code(query.ten_sp)
+
+        if ma_sp:
+            mappings = mappings_by_code.get(normalize_code_for_match(ma_sp), [])
+            if not mappings:
+                _add_issue(
+                    result,
+                    query,
+                    ma_sp,
+                    ten_sp,
+                    "khong_tim_thay_ma",
+                    f"Không tìm thấy Mã SP '{ma_sp}'.",
+                )
+                continue
+        elif ten_sp:
+            mappings = mappings_by_name.get(normalize_code_for_match(ten_sp), [])
+            if not mappings:
+                _add_issue(
+                    result,
+                    query,
+                    ma_sp,
+                    ten_sp,
+                    "khong_tim_thay_ten",
+                    f"Không tìm thấy chính xác Tên SP '{ten_sp}'.",
+                )
+                continue
+            distinct_codes = sorted({m.ma_sp for m in mappings if m.ma_sp})
+            if len(distinct_codes) > 1:
+                _add_issue(
+                    result,
+                    query,
+                    ma_sp,
+                    ten_sp,
+                    "ten_trung_nhieu_ma",
+                    f"Tên SP khớp nhiều mã: {', '.join(distinct_codes)}. "
+                    "Hãy nhập Mã SP để chọn chính xác.",
+                )
+                continue
+        else:
+            _add_issue(
+                result,
+                query,
+                ma_sp,
+                ten_sp,
+                "thieu_dieu_kien",
+                "Cần nhập ít nhất Mã SP hoặc Tên SP.",
+            )
+            continue
+
+        distinct_vat = {m.ma_vat_kiot_norm for m in mappings if m.ma_vat_kiot_norm}
+        if len(distinct_vat) != 1:
+            vat_labels = sorted({m.ma_vat_kiot for m in mappings if m.ma_vat_kiot})
+            detail = (
+                f"Sản phẩm đang trỏ tới nhiều Mã VAT: {', '.join(vat_labels)}."
+                if vat_labels
+                else "Sản phẩm chưa có Mã VAT trong sheet Khớp mã."
+            )
+            _add_issue(result, query, ma_sp, ten_sp, "ma_vat_khong_duy_nhat", detail)
+            continue
+
+        mapping = mappings[0]
+        candidates = sorted(
+            stock_by_vat.get(next(iter(distinct_vat)), []),
+            key=lambda stock: (
+                stock.ton_co_the_nhap,
+                normalize_code_for_match(stock.nguon),
+                stock.row_index,
+            ),
+        )
+        if not candidates:
+            _add_issue(
+                result,
+                query,
+                mapping.ma_sp,
+                mapping.ten_sp,
+                "khong_con_ton_duong",
+                f"Mã VAT '{mapping.ma_vat_kiot}' không còn nguồn có tồn nháp dương.",
+            )
+            continue
+
+        gia_ban = to_float_or_none(query.gia_ban)
+        for stock in candidates:
+            phan_tram_vat = stock.thue_vat
+            gia_nhap = None
+            if gia_ban is not None and phan_tram_vat is not None and (1 + phan_tram_vat) != 0:
+                gia_nhap = round(
+                    gia_ban / (1 + phan_tram_vat),
+                    config.gia_nhap_decimal_places,
+                )
+            result.lines.append(
+                SourceLookupLine(
+                    query_order=query.order_index,
+                    ma_sp=mapping.ma_sp,
+                    ten_sp=mapping.ten_sp,
+                    sl=query.sl,
+                    gia_ban=query.gia_ban,
+                    ma_vat=mapping.ma_vat_kiot,
+                    ten_vat=mapping.ten_truoc_vat or stock.ten_vat_kiot,
+                    ten_ke_toan=stock.ten_ke_toan,
+                    dvt=stock.don_vi_tinh,
+                    nguon=stock.nguon,
+                    ton_con_nhap=stock.ton_co_the_nhap,
+                    phan_tram_vat=stock.thue_vat,
+                    gia_nhap=gia_nhap,
+                )
+            )
+
+    return result
+
+
 def build_grouped_display_rows(lines: list[SourceLookupLine]) -> list[dict[str, Any]]:
     """Tạo bảng kết quả hóa đơn với đúng một dòng cho mỗi mã sản phẩm."""
 
@@ -309,6 +455,32 @@ def build_grouped_display_rows(lines: list[SourceLookupLine]) -> list[dict[str, 
                 "TỒN CÒN NHÁP": line.ton_con_nhap,
                 "%VAT": line.phan_tram_vat * 100 if line.phan_tram_vat is not None else None,
                 "GIÁ NHÁP (Giá bán/(1+%VAT))": line.gia_nhap,
+            }
+        )
+    return rows
+
+
+def build_all_sources_display_rows(lines: list[SourceLookupLine]) -> list[dict[str, Any]]:
+    """Tạo bảng nhiều nguồn, chỉ hiện thông tin input ở dòng đầu mỗi sản phẩm."""
+
+    rows: list[dict[str, Any]] = []
+    seen_queries: set[int] = set()
+    for line in lines:
+        is_first = line.query_order not in seen_queries
+        seen_queries.add(line.query_order)
+        rows.append(
+            {
+                "Mã kiot": line.ma_sp if is_first else "",
+                "Tên kiot": line.ten_sp if is_first else "",
+                "SL": to_float_or_none(line.sl) if is_first else "",
+                "Giá bán": to_float_or_none(line.gia_ban) if is_first else "",
+                "Mã VAT": line.ma_vat,
+                "Tên VAT": line.ten_vat,
+                "Mã kế toán": line.ten_ke_toan,
+                "ĐVT": line.dvt,
+                "Nguồn": line.nguon,
+                "Tồn nháp được": line.ton_con_nhap,
+                "%VAT": line.phan_tram_vat * 100 if line.phan_tram_vat is not None else None,
             }
         )
     return rows

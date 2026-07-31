@@ -182,23 +182,23 @@ if result is not None:
         with st.container(key="result-highlight"):
             st.dataframe(
                 result_df,
-                use_container_width=True,
+                width="stretch",
                 height=440,
                 hide_index=True,
                 column_config={
-                    "MÃ SP": st.column_config.TextColumn(width="medium"),
-                    "TÊN SP": st.column_config.TextColumn(width="large"),
-                    "SL": st.column_config.NumberColumn(width="small", format="%.0f"),
-                    "Giá bán": st.column_config.NumberColumn(width="small", format="%.0f"),
-                    "Mã VAT": st.column_config.TextColumn(width="medium"),
-                    "TÊN VAT": st.column_config.TextColumn(width="large"),
-                    "TÊN KẾ TOÁN": st.column_config.TextColumn(width="large"),
-                    "ĐVT": st.column_config.TextColumn(width="small"),
-                    "NGUỒN": st.column_config.TextColumn(width="medium"),
-                    "TỒN CÒN NHÁP": st.column_config.NumberColumn(width="medium", format="%.0f"),
-                    "%VAT": st.column_config.NumberColumn(width="small", format="%.0f%%"),
+                    "MÃ SP": st.column_config.TextColumn(width=68),
+                    "TÊN SP": st.column_config.TextColumn(width=175),
+                    "SL": st.column_config.NumberColumn(width=48, format="%.0f"),
+                    "Giá bán": st.column_config.NumberColumn(width=62, format="%.0f"),
+                    "Mã VAT": st.column_config.TextColumn(width=70),
+                    "TÊN VAT": st.column_config.TextColumn(width=175),
+                    "TÊN KẾ TOÁN": st.column_config.TextColumn(width=165),
+                    "ĐVT": st.column_config.TextColumn(width=46),
+                    "NGUỒN": st.column_config.TextColumn(width=62),
+                    "TỒN CÒN NHÁP": st.column_config.NumberColumn(width=68, format="%.0f"),
+                    "%VAT": st.column_config.NumberColumn(width=46, format="%.0f%%"),
                     "GIÁ NHÁP\n(Giá bán/(1+%VAT))": st.column_config.NumberColumn(
-                        width="medium", format="%.0f"
+                        width=130, format="%.0f"
                     ),
                 },
             )
