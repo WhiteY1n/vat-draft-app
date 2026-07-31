@@ -7,31 +7,28 @@ import io
 import pandas as pd
 import streamlit as st
 
-from src.session import get_current_version_metadata, get_current_workbook
+from src.auth import get_current_user
+from src.session import get_config, get_current_version_metadata, get_current_workbook
 from src.source_lookup import SourceLookupInput, build_grouped_display_rows, lookup_sources
 from ui import (
     apply_global_styles,
     render_action_bar,
-    render_compact_data_status,
     render_data_version_banner,
-    render_page_header,
+    render_feature_top_bar,
     render_section_header,
-    render_sidebar,
 )
 
-st.set_page_config(page_title="Tra cứu nguồn", page_icon="🔎", layout="wide")
+st.set_page_config(
+    page_title="Tra cứu nguồn", page_icon="🔎", layout="wide", initial_sidebar_state="collapsed"
+)
 apply_global_styles()
 
+config = get_config()
+user = get_current_user(config, session_email=st.session_state.get("user_email"))
 meta = get_current_version_metadata()
-render_sidebar(meta)
-
 workbook = get_current_workbook()
-header_column, status_column = st.columns([4, 1.35], gap="large")
-with header_column:
-    render_page_header("Tra cứu nguồn", "", icon="🔎")
-with status_column:
-    if workbook is not None and workbook.is_valid and meta is not None:
-        render_compact_data_status(meta)
+
+render_feature_top_bar(active="tra_cuu_nguon", meta=meta, config=config, user=user)
 
 if workbook is None or not workbook.is_valid:
     render_data_version_banner(meta, valid=False)
@@ -102,7 +99,9 @@ if lookup_clicked:
             )
 
         if queries:
-            result = lookup_sources(queries, workbook.mapping_rows, workbook.stock_rows)
+            result = lookup_sources(
+                queries, workbook.mapping_rows, workbook.stock_rows, config=config
+            )
             st.session_state["source_lookup_result"] = result
         else:
             st.warning("Hãy nhập ít nhất một Mã SP hoặc Tên SP.")
@@ -140,37 +139,31 @@ if result is not None:
         )
 
     if result.lines:
-        lines_by_order = {}
-        for line in result.lines:
-            lines_by_order.setdefault(line.query_order, []).append(line)
-
-        for query_order, product_lines in lines_by_order.items():
-            first_line = product_lines[0]
-            with st.container(border=True):
-                st.markdown(
-                    f"### {first_line.ma_sp or 'Không có mã'} · {first_line.ten_sp or 'Không có tên'}"
-                )
-                st.success(
-                    f"Đề xuất: **{first_line.nguon}** · "
-                    f"Tồn nháp được {first_line.ton_con_nhap:,.2f}"
-                )
-                product_df = pd.DataFrame(build_grouped_display_rows(product_lines))
-                st.dataframe(
-                    product_df,
-                    use_container_width=True,
-                    hide_index=True,
-                    column_config={
-                        "Mã kiot": st.column_config.TextColumn(width="medium"),
-                        "Tên kiot": st.column_config.TextColumn(width="large"),
-                        "Tên VAT": st.column_config.TextColumn(width="large"),
-                        "Mã kế toán": st.column_config.TextColumn(width="large"),
-                        "Nguồn": st.column_config.TextColumn(width="medium"),
-                        "Tồn nháp được": st.column_config.NumberColumn(format="%.2f"),
-                        "%VAT": st.column_config.NumberColumn(format="%.1f%%"),
-                    },
-                )
-
         result_df = pd.DataFrame(build_grouped_display_rows(result.lines))
+        with st.container(key="result-highlight"):
+            st.dataframe(
+                result_df,
+                use_container_width=True,
+                height=440,
+                hide_index=True,
+                column_config={
+                    "MÃ SP": st.column_config.TextColumn(width="medium"),
+                    "TÊN SP": st.column_config.TextColumn(width="large"),
+                    "SL": st.column_config.NumberColumn(width="small", format="%.0f"),
+                    "Giá bán": st.column_config.NumberColumn(width="small", format="%.0f"),
+                    "Mã VAT": st.column_config.TextColumn(width="medium"),
+                    "TÊN VAT": st.column_config.TextColumn(width="large"),
+                    "TÊN KẾ TOÁN": st.column_config.TextColumn(width="large"),
+                    "ĐVT": st.column_config.TextColumn(width="small"),
+                    "NGUỒN": st.column_config.TextColumn(width="medium"),
+                    "TỒN CÒN NHÁP": st.column_config.NumberColumn(width="medium", format="%.0f"),
+                    "%VAT": st.column_config.NumberColumn(width="small", format="%.0f%%"),
+                    "GIÁ NHÁP (Giá bán/(1+%VAT))": st.column_config.NumberColumn(
+                        width="medium", format="%.0f"
+                    ),
+                },
+            )
+
         csv_buffer = io.StringIO()
         result_df.to_csv(csv_buffer, index=False, encoding="utf-8-sig")
         st.download_button(
@@ -180,4 +173,4 @@ if result is not None:
             mime="text/csv",
         )
     elif not result.issues:
-        st.info("Không có nguồn còn tồn nháp dương để hiển thị.")
+        st.info("Không có nguồn phù hợp để hiển thị.")

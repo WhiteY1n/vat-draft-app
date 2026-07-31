@@ -11,23 +11,23 @@ from src.review import build_manual_review_report
 from src.session import get_config, get_current_version_metadata, get_current_workbook
 from ui import (
     apply_global_styles,
+    render_admin_top_bar,
     render_data_version_banner,
     render_metric_card,
-    render_page_header,
     render_section_header,
-    render_sidebar,
 )
 
-st.set_page_config(page_title="Kiểm tra dữ liệu", page_icon="✅", layout="wide")
+st.set_page_config(
+    page_title="Kiểm tra dữ liệu", page_icon="✅", layout="wide", initial_sidebar_state="collapsed"
+)
 apply_global_styles()
 
 meta = get_current_version_metadata()
-render_sidebar(meta)
-
-render_page_header(
-    "Kiểm tra dữ liệu",
-    "Theo dõi lỗi, cảnh báo và các trường hợp cần rà soát tên. Trang này không gọi AI.",
+render_admin_top_bar(
+    title="Kiểm tra dữ liệu",
     icon="✅",
+    description="Theo dõi lỗi, cảnh báo và các trường hợp cần rà soát tên. Trang này không gọi AI.",
+    meta=meta,
 )
 
 config = get_config()

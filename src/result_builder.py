@@ -7,6 +7,22 @@ from src.config import AppConfig
 from src.models import AllocationResultLine
 
 
+CHECK_RESULT_COLUMNS = [
+    "MÃ SP",
+    "TÊN SP",
+    "SL",
+    "Giá bán",
+    "Mã VAT",
+    "TÊN VAT",
+    "TÊN KẾ TOÁN",
+    "ĐVT",
+    "NGUỒN",
+    "TỒN CÒN NHÁP",
+    "%VAT",
+    "GIÁ NHÁP\n(Giá bán/(1+%VAT))",
+]
+
+
 def build_result_lines(
     allocations: list[RowAllocation], config: AppConfig
 ) -> list[AllocationResultLine]:
@@ -56,3 +72,25 @@ def build_result_lines(
             )
 
     return lines
+
+
+def build_check_result_rows(lines: list[AllocationResultLine]) -> list[dict]:
+    """Tạo bảng kiểm tra gọn theo đúng mẫu nghiệp vụ người dùng."""
+
+    return [
+        {
+            "MÃ SP": line.ma_sp,
+            "TÊN SP": line.ten_sp,
+            "SL": line.sl_yeu_cau,
+            "Giá bán": line.gia_ban,
+            "Mã VAT": line.ma_vat,
+            "TÊN VAT": line.ten_vat,
+            "TÊN KẾ TOÁN": line.ten_ke_toan,
+            "ĐVT": line.dvt,
+            "NGUỒN": line.nguon,
+            "TỒN CÒN NHÁP": line.ton_con_nhap_truoc,
+            "%VAT": line.phan_tram_vat * 100 if line.phan_tram_vat is not None else None,
+            "GIÁ NHÁP\n(Giá bán/(1+%VAT))": line.gia_nhap,
+        }
+        for line in lines
+    ]

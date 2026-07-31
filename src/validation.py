@@ -146,15 +146,31 @@ def validate_invoice_rows(
                     else:
                         stock_candidates = lookup.find_stock_candidates(mapping_row.ma_vat_kiot_norm)
                         if not stock_candidates:
-                            row_errors.append(
-                                _err(
-                                    row,
-                                    "mavat_khong_ton_tai",
-                                    f"Mã VAT '{mapping_row.ma_vat_kiot}' không tồn tại trong "
-                                    "sheet Gộp VAT hoặc không còn dòng tồn dương.",
-                                    "Kiểm tra sheet Gộp VAT hoặc chọn Mã SP khác.",
-                                )
+                            all_stock_rows = lookup.find_all_stock_rows(
+                                mapping_row.ma_vat_kiot_norm
                             )
+                            if all_stock_rows:
+                                max_stock = max(s.ton_co_the_nhap for s in all_stock_rows)
+                                row_errors.append(
+                                    _err(
+                                        row,
+                                        "mavat_het_ton_nhap",
+                                        f"Mã VAT '{mapping_row.ma_vat_kiot}' có trong sheet Gộp VAT "
+                                        f"nhưng không còn tồn có thể nháp dương (cao nhất {max_stock:g}).",
+                                        "Cập nhật cột TỒN CÓ THỂ NHÁP trong sheet Gộp VAT "
+                                        "hoặc chọn sản phẩm còn tồn.",
+                                    )
+                                )
+                            else:
+                                row_errors.append(
+                                    _err(
+                                        row,
+                                        "mavat_khong_ton_tai",
+                                        f"Mã VAT '{mapping_row.ma_vat_kiot}' không tồn tại trong "
+                                        "sheet Gộp VAT.",
+                                        "Kiểm tra Mã VAT ở sheet Khớp mã và sheet Gộp VAT.",
+                                    )
+                                )
 
         if row_errors:
             result.errors.extend(row_errors)

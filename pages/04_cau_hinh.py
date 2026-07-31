@@ -6,18 +6,19 @@ import pandas as pd
 import streamlit as st
 
 from src.session import get_config, get_current_version_metadata
-from ui import apply_global_styles, render_page_header, render_sidebar
+from ui import apply_global_styles, render_admin_top_bar
 
-st.set_page_config(page_title="Cấu hình", page_icon="⚙️", layout="wide")
+st.set_page_config(
+    page_title="Cấu hình", page_icon="⚙️", layout="wide", initial_sidebar_state="collapsed"
+)
 apply_global_styles()
 
 metadata = get_current_version_metadata()
-render_sidebar(metadata)
-
-render_page_header(
-    "Cấu hình",
-    "Giải thích các quy tắc đang được ứng dụng sử dụng. Trang này chỉ đọc và không ghi file cấu hình.",
+render_admin_top_bar(
+    title="Cấu hình",
     icon="⚙️",
+    description="Giải thích các quy tắc đang được ứng dụng sử dụng. Trang này chỉ đọc và không ghi file cấu hình.",
+    meta=metadata,
 )
 
 st.info(

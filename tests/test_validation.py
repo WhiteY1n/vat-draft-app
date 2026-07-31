@@ -42,6 +42,33 @@ def test_zero_or_negative_ton_excluded_from_candidates():
     assert len(result.resolved_rows[0].stock_candidates) == 1
 
 
+def test_existing_vat_with_no_positive_stock_reports_out_of_stock():
+    stock = [
+        make_stock_row(2, "MAY", "VAT10176", "Chậu nhựa", "Cái", 0),
+        make_stock_row(3, "MAY", "VAT10176", "Chậu nhựa", "Cái", -5),
+    ]
+    mapping = [make_mapping_row(2, "CGGHV", "Chậu gấp gọn hình voi", "VAT10176")]
+    rows = [make_input_row(15, "CGGHV", "Chậu gấp gọn hình voi", 900, 2826)]
+
+    result = validate_invoice_rows(rows, MappingLookup.build(mapping, stock), _config())
+
+    assert result.has_blocking_errors
+    assert result.errors[0].error_type == "mavat_het_ton_nhap"
+    assert "có trong sheet Gộp VAT" in result.errors[0].detail
+    assert "cao nhất 0" in result.errors[0].detail
+
+
+def test_missing_vat_still_reports_missing_vat():
+    mapping = [make_mapping_row(2, "ABC", "Tên A", "VAT404")]
+    rows = [make_input_row(1, "ABC", "Tên A", 1, 1000)]
+
+    result = validate_invoice_rows(rows, MappingLookup.build(mapping, []), _config())
+
+    assert result.has_blocking_errors
+    assert result.errors[0].error_type == "mavat_khong_ton_tai"
+    assert "không tồn tại trong sheet Gộp VAT" in result.errors[0].detail
+
+
 def test_sl_must_be_positive_integer():
     mapping = [make_mapping_row(2, "ABC", "Ten A", "VAT1")]
     stock = [make_stock_row(2, "MAY", "VAT1", "Ten KT", "Cái", 10)]

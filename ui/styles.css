@@ -11,19 +11,9 @@
 
 div.block-container,
 [data-testid="stMainBlockContainer"] {
-  max-width: 1280px;
-  padding-top: 2rem;
+  max-width: 1600px;
+  padding-top: 1.5rem;
   padding-bottom: 3rem;
-}
-
-[data-testid="stSidebar"] {
-  background: #f1f5f9;
-  border-right: 1px solid var(--app-border);
-}
-
-[data-testid="stSidebar"] [data-testid="stPageLink"] a {
-  border-radius: 10px;
-  margin-bottom: 0.2rem;
 }
 
 h1, h2, h3 {
@@ -122,4 +112,119 @@ h1 {
   [data-testid="stHorizontalBlock"] {
     gap: 0.75rem;
   }
+}
+
+/* --- Khối "Đề xuất" nổi bật trong kết quả tra cứu nguồn --- */
+.reco-callout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem 0.6rem;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-left: 4px solid #10b981;
+  border-radius: 10px;
+  padding: 0.7rem 1rem;
+  margin: 0.35rem 0 0.85rem;
+}
+
+.reco-callout__label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #047857;
+  width: 100%;
+}
+
+.reco-callout__value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #065f46;
+}
+
+.reco-callout__meta {
+  font-size: 0.95rem;
+  color: #047857;
+}
+
+.reco-callout__meta b {
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Thẻ sản phẩm trong kết quả tra cứu nguồn --- */
+[class*="st-key-product-card"] {
+  border-top: 3px solid #2563eb !important;
+}
+
+/* --- Khối kết quả chính (bảng phân bổ / danh sách nguồn) --- */
+[class*="st-key-result-highlight"] {
+  border: 1.5px solid #bfdbfe !important;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.08);
+}
+
+/* --- Thanh trên cùng: thay cho sidebar, tối đa chiều ngang cho kết quả --- */
+[data-testid="stMainBlockContainer"] > div:first-child h2 {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.data-status-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 2.65rem;
+  padding: 0 0.75rem;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  font-size: 0.88rem;
+  color: #172033;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.data-status-inline--missing {
+  color: var(--app-muted);
+}
+
+/* Nút "Chuyển sang <chức năng khác>": bo tròn dạng pill, nổi bật nhẹ */
+[class*="st-key-switch-to-"] [data-testid="stPageLink"] a {
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #eff6ff;
+  padding: 0.4rem 0.9rem;
+  font-weight: 600;
+  color: #1d4ed8;
+  justify-content: center;
+}
+
+[class*="st-key-switch-to-"] [data-testid="stPageLink"] a:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+/* Giữ trọn nhãn điều hướng trên điện thoại nằm ngang, ngay trên breakpoint mobile. */
+@media (min-width: 769px) and (max-width: 900px) {
+  [class*="st-key-switch-to-"] [data-testid="stPageLink"] a > span:last-child {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    line-height: 1.2;
+  }
+}
+
+/* Nút popover gọn (Cập nhật dữ liệu, Quản trị): hình vuông, chỉ icon */
+[class*="st-key-upload-popover-"] > div > button,
+[class*="st-key-admin-popover-"] > div > button {
+  width: 2.65rem;
+  height: 2.65rem;
+  border-radius: 10px;
+  padding: 0;
+}
+
+/* --- Thanh quản trị gọn trên các trang Quản lý dữ liệu / Kiểm tra dữ liệu / Cấu hình --- */
+[data-testid="stMainBlockContainer"] [data-testid="stPageLink"] a {
+  font-size: 0.88rem;
 }

@@ -20,22 +20,22 @@ from src.session import (
 )
 from ui import (
     apply_global_styles,
+    render_admin_top_bar,
     render_empty_state,
-    render_page_header,
     render_section_header,
-    render_sidebar,
 )
 
-st.set_page_config(page_title="Quản lý dữ liệu", page_icon="🗂️", layout="wide")
+st.set_page_config(
+    page_title="Quản lý dữ liệu", page_icon="🗂️", layout="wide", initial_sidebar_state="collapsed"
+)
 apply_global_styles()
 
 metadata = get_current_version_metadata()
-render_sidebar(metadata)
-
-render_page_header(
-    "Quản lý dữ liệu",
-    "Theo dõi file đang dùng, kiểm tra phiên bản mới trước khi xác nhận và khôi phục khi cần.",
+render_admin_top_bar(
+    title="Quản lý dữ liệu",
     icon="🗂️",
+    description="Theo dõi file đang dùng, kiểm tra phiên bản mới trước khi xác nhận và khôi phục khi cần.",
+    meta=metadata,
 )
 
 config = get_config()

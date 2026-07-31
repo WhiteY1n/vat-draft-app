@@ -9,13 +9,6 @@ import streamlit as st
 from src.storage.base import FileVersionMetadata
 
 
-def render_page_header(title: str, description: str, icon: str | None = None) -> None:
-    heading = f"{icon} {title}" if icon else title
-    st.title(heading)
-    if description:
-        st.caption(description)
-
-
 def render_section_header(title: str, description: str | None = None) -> None:
     st.subheader(title)
     if description:
@@ -42,14 +35,6 @@ def render_data_version_banner(
         st.success(f"Dữ liệu sẵn sàng · {detail}")
     else:
         st.info(f"Đang dùng dữ liệu · {detail}")
-
-
-def render_compact_data_status(metadata: FileVersionMetadata) -> None:
-    """Hiển thị trạng thái và tên file trong một card nhỏ, không lộ chi tiết kỹ thuật."""
-
-    with st.container(border=True):
-        st.caption("Dữ liệu sẵn sàng")
-        st.markdown(f":green[**{metadata.original_file_name}**]")
 
 
 def render_metric_card(
