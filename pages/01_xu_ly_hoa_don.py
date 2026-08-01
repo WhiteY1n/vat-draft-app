@@ -8,9 +8,15 @@ import pandas as pd
 import streamlit as st
 
 from src.auth import get_current_user
+from src.invoice_allocation import (
+    InvoiceAllocationResult,
+    allocate_invoice_sources,
+    build_allocation_display_rows,
+    build_shortage_display_rows,
+)
 from src.result_builder import CHECK_RESULT_COLUMNS
 from src.session import get_config, get_current_version_metadata, get_current_workbook
-from src.source_lookup import SourceLookupInput, build_grouped_display_rows, lookup_sources
+from src.source_lookup import SourceLookupInput
 from ui import (
     apply_global_styles,
     render_action_bar,
@@ -64,6 +70,10 @@ if clear_clicked:
     st.rerun()
 
 result = st.session_state.get("check_result")
+if result is not None and not isinstance(result, InvoiceAllocationResult):
+    # Kết quả cũ còn sót lại từ phiên trước khi đổi sang phân bổ nguồn.
+    result = None
+    st.session_state.pop("check_result", None)
 
 if read_and_check_clicked:
     result = None
@@ -109,7 +119,7 @@ if read_and_check_clicked and pasted_text.strip():
         st.warning("Chưa có dòng hóa đơn nào để kiểm tra.")
         st.session_state.pop("check_result", None)
     else:
-        result = lookup_sources(
+        result = allocate_invoice_sources(
             lookup_rows,
             workbook.mapping_rows,
             workbook.stock_rows,
@@ -121,24 +131,25 @@ if read_and_check_clicked and pasted_text.strip():
 if result is not None:
     render_section_header(
         "Kết quả xử lý",
-        "Mỗi dòng được tra cứu độc lập; tồn còn nháp chỉ dùng để kiểm tra và không bị trừ mô phỏng.",
+        "Mỗi sản phẩm được phân bổ độc lập theo tồn còn nháp; tồn không bị trừ mô phỏng "
+        "giữa các dòng hóa đơn.",
     )
 
     input_count = st.session_state.get("last_input_count", 0)
-    output_count = len(result.lines)
-    issue_count = len(result.issues)
+    output_count = len({line.query_order for line in result.lines})
+    issue_count = len(result.issues) + len(result.shortages)
     summary_columns = st.columns(3, gap="small")
     with summary_columns[0]:
         render_metric_card("Tổng dòng đã kiểm tra", f"{input_count:,}")
     with summary_columns[1]:
-        render_metric_card("Dòng đã trả kết quả", f"{output_count:,}")
+        render_metric_card("Sản phẩm đã phân bổ", f"{output_count:,}")
     with summary_columns[2]:
         render_metric_card("Dòng cần kiểm tra", f"{issue_count:,}")
 
     if result.issues:
         st.warning(
-            f"Đã trả kết quả cho {output_count}/{input_count} dòng; "
-            f"còn {issue_count} dòng cần kiểm tra thông tin mã hoặc mapping."
+            f"Đã phân bổ {output_count}/{input_count} dòng; "
+            f"còn {len(result.issues)} dòng cần kiểm tra thông tin mã hoặc mapping."
         )
         issue_df = pd.DataFrame(
             [
@@ -164,18 +175,19 @@ if result is not None:
                 "Nội dung": st.column_config.TextColumn(width="large"),
             },
         )
-    else:
+    elif not result.shortages:
         st.success(
-            f"Đã trả đủ {output_count}/{input_count} dòng. "
-            "Các dòng tồn bằng 0 vẫn được giữ trong bảng để người dùng kiểm tra."
+            f"Đã phân bổ đủ {output_count}/{input_count} dòng. "
+            "Mỗi nguồn được dùng hiển thị thành một dòng riêng."
         )
 
     if result.lines:
         render_section_header(
             "Kết quả kiểm tra",
-            "Hiển thị đầy đủ thông tin sản phẩm, VAT, kế toán, nguồn và tồn còn nháp theo mẫu nghiệp vụ.",
+            "Mỗi nguồn được dùng là một dòng riêng; các dòng của cùng một mã hàng nằm liền nhau. "
+            "Cột SL là số lượng lấy từ nguồn đó.",
         )
-        result_df = pd.DataFrame(build_grouped_display_rows(result.lines)).rename(
+        result_df = pd.DataFrame(build_allocation_display_rows(result.lines)).rename(
             columns={
                 "GIÁ NHÁP (Giá bán/(1+%VAT))": "GIÁ NHÁP\n(Giá bán/(1+%VAT))"
             }
@@ -212,4 +224,26 @@ if result is not None:
             data=csv_buffer.getvalue().encode("utf-8-sig"),
             file_name="ket_qua_xu_ly_hoa_don.csv",
             mime="text/csv",
+        )
+
+    if result.shortages:
+        render_section_header(
+            "Sản phẩm không đủ tồn",
+            "Các sản phẩm có tổng tồn còn nháp nhỏ hơn SL yêu cầu nên không được phân bổ.",
+        )
+        st.warning(f"Có {len(result.shortages)} sản phẩm không đủ số lượng tồn.")
+        shortage_df = pd.DataFrame(build_shortage_display_rows(result.shortages))
+        st.dataframe(
+            shortage_df,
+            width="stretch",
+            hide_index=True,
+            column_config={
+                "Dòng nhập": st.column_config.NumberColumn(width="small", format="%d"),
+                "MÃ SP": st.column_config.TextColumn(width=80),
+                "TÊN SP": st.column_config.TextColumn(width="large"),
+                "SL yêu cầu": st.column_config.NumberColumn(width=90, format="%.0f"),
+                "Tổng tồn hiện có": st.column_config.NumberColumn(width=120, format="%.0f"),
+                "Còn thiếu": st.column_config.NumberColumn(width=90, format="%.0f"),
+                "Ghi chú": st.column_config.TextColumn(width="large"),
+            },
         )
