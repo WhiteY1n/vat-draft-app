@@ -6,6 +6,7 @@ Không được ghi hoặc sửa file nguồn. Module này chỉ đọc.
 from __future__ import annotations
 
 import hashlib
+import io
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -100,8 +101,40 @@ def read_and_validate_workbook(path: str | Path, file_name: str | None = None) -
             errors=errors,
         )
 
+    return _read_and_validate_workbook_source(
+        path, file_name=file_name, file_size=file_size, sha256=sha256
+    )
+
+
+def read_and_validate_workbook_bytes(
+    file_bytes: bytes, file_name: str
+) -> WorkbookCheckResult:
+    """Validate an uploaded workbook entirely in memory, without a temporary file."""
+
+    return _read_and_validate_workbook_source(
+        io.BytesIO(file_bytes),
+        file_name=file_name,
+        file_size=len(file_bytes),
+        sha256=hashlib.sha256(file_bytes).hexdigest(),
+    )
+
+
+def _read_and_validate_workbook_source(
+    source, *, file_name: str, file_size: int, sha256: str
+) -> WorkbookCheckResult:
+    errors: list[str] = []
+    if Path(file_name).suffix.lower() != ".xlsx":
+        errors.append("File không phải định dạng .xlsx.")
+        return WorkbookCheckResult(
+            is_valid=False,
+            file_name=file_name,
+            file_size_bytes=file_size,
+            sha256=sha256,
+            errors=errors,
+        )
+
     try:
-        wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
+        wb = openpyxl.load_workbook(source, data_only=True, read_only=True)
     except Exception as exc:  # noqa: BLE001 - báo lỗi cụ thể cho người dùng
         errors.append(f"Không đọc được workbook: {exc}")
         return WorkbookCheckResult(

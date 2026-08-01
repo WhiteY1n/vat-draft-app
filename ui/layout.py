@@ -8,13 +8,10 @@ from __future__ import annotations
 
 from datetime import datetime
 from html import escape
-import os
-import tempfile
-
 import streamlit as st
 
 from src.auth import Role
-from src.excel_reader import read_and_validate_workbook
+from src.excel_reader import read_and_validate_workbook_bytes
 from src.session import confirm_new_current_file
 from src.storage.base import FileVersionMetadata
 
@@ -70,10 +67,7 @@ def _render_upload_popover(*, config, user, key: str) -> None:
             return
 
         file_bytes = uploaded_file.getvalue()
-        tmp_path = os.path.join(tempfile.gettempdir(), f"quick_upload_{uploaded_file.name}")
-        with open(tmp_path, "wb") as file_handle:
-            file_handle.write(file_bytes)
-        check = read_and_validate_workbook(tmp_path, file_name=uploaded_file.name)
+        check = read_and_validate_workbook_bytes(file_bytes, uploaded_file.name)
 
         if not check.is_valid:
             st.error("File có lỗi, chưa thể dùng làm dữ liệu hiện tại:")

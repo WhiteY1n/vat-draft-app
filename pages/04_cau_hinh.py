@@ -100,13 +100,13 @@ with st.expander("Quy tắc số lượng và tồn kho"):
 with st.expander("Lưu trữ phiên bản"):
     st.write(f"**Số phiên bản giữ lại tối đa:** {config.max_versions_kept}")
     st.caption(
-        "Hệ thống giữ phiên bản hiện tại và các phiên bản gần nhất theo giới hạn này. "
-        "Việc cập nhật con trỏ dữ liệu hiện tại được thực hiện sau khi file mới đã lưu thành công."
+        "Các phiên bản chỉ được giữ trong bộ nhớ của phiên trình duyệt hiện tại và sẽ mất khi phiên kết thúc. "
+        "Người dùng khác không thể truy cập dữ liệu này."
     )
 
 with st.expander("Cấu hình kỹ thuật"):
     st.write(f"**Chế độ đăng nhập:** `{config.auth_mode}`")
-    st.write(f"**Backend lưu trữ hiện tại:** LocalStorageAdapter")
-    st.write(f"**Thư mục lưu trữ:** `{config.local_storage_root}`")
+    st.write("**Backend lưu trữ hiện tại:** SessionMemoryStorageAdapter")
+    st.write("**Vị trí lưu trữ:** Bộ nhớ riêng của phiên người dùng (không ghi file upload lên server)")
     st.write("**Nguồn cấu hình:** `config/settings.yaml` và các biến môi trường được hỗ trợ")
     st.caption("Không hiển thị secret, khóa truy cập hoặc danh sách email trên giao diện này.")

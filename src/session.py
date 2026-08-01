@@ -7,35 +7,38 @@ from __future__ import annotations
 
 import datetime as _dt
 import uuid
-from pathlib import Path
-
 import streamlit as st
 
 from src.config import AppConfig, load_config
-from src.excel_reader import WorkbookCheckResult, read_and_validate_workbook
+from src.excel_reader import WorkbookCheckResult, read_and_validate_workbook_bytes
 from src.storage.base import FileVersionMetadata
-from src.storage.local import LocalStorageAdapter
+from src.storage.session_memory import SessionMemoryStorageAdapter
 
 
 def get_config() -> AppConfig:
     return load_config()
 
 
-def get_storage() -> LocalStorageAdapter:
-    if "storage" not in st.session_state:
-        config = get_config()
-        root = Path(config.local_storage_root)
-        root.mkdir(parents=True, exist_ok=True)
-        st.session_state["storage"] = LocalStorageAdapter(root)
+def get_storage() -> SessionMemoryStorageAdapter:
+    # Replace an adapter left in an already-open session after a hot deploy.  This
+    # also guarantees that the old shared-disk backend is never reused.
+    if not isinstance(st.session_state.get("storage"), SessionMemoryStorageAdapter):
+        st.session_state["storage"] = SessionMemoryStorageAdapter()
     return st.session_state["storage"]
 
 
-def _load_current_workbook(storage: LocalStorageAdapter) -> WorkbookCheckResult | None:
+def _load_current_workbook(storage: SessionMemoryStorageAdapter) -> WorkbookCheckResult | None:
     current_id = storage.get_current_version_id()
     if not current_id:
         return None
-    path = storage.get_version_file_path(current_id)
-    return read_and_validate_workbook(path)
+    metadata = next(
+        (item for item in storage.list_versions() if item.version_id == current_id), None
+    )
+    if metadata is None:
+        return None
+    return read_and_validate_workbook_bytes(
+        storage.load_version_file(current_id), metadata.original_file_name
+    )
 
 
 def get_current_workbook() -> WorkbookCheckResult | None:

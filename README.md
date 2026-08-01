@@ -12,7 +12,8 @@ copy lại trong README này).
 Đã hoàn thành **Milestone 1–4** ở mức chạy được từ đầu đến cuối tại local:
 
 - Đọc & kiểm tra cấu trúc file Excel (`Gộp VAT`, `Khớp mã`).
-- Upload, xác nhận dùng làm dữ liệu hiện tại (atomic), lịch sử & khôi phục phiên bản (LocalStorageAdapter).
+- Upload, xác nhận và xử lý trong bộ nhớ riêng của từng phiên người dùng
+  (`SessionMemoryStorageAdapter`); không ghi file upload lên ổ đĩa server.
 - Dán hóa đơn nhiều dòng, sửa trực tiếp trên bảng, kiểm tra lỗi chặn.
 - Mapping Mã SP → Mã VAT → Tên kế toán (chọn 1 nhóm Tên kế toán + ĐVT cho mỗi dòng).
 - Xếp hạng nguồn trong phạm vi hóa đơn, phân bổ số lượng (ưu tiên 1 nguồn nếu đủ, chia gần đều nếu phải dùng nhiều nguồn, không vượt tồn trong 1 lần chạy).
@@ -118,17 +119,20 @@ streamlit run app.py
 
 ## 7. Hướng dẫn triển khai web (tóm tắt)
 
-MVP hiện dùng `LocalStorageAdapter` (lưu trên đĩa của server chạy app) — phù hợp để chạy nội
-bộ trên một máy/server cố định. Để triển khai đúng như CLAUDE.md dự kiến ở Milestone 5:
+App hiện dùng `SessionMemoryStorageAdapter`: mỗi kết nối trình duyệt có kho dữ liệu riêng
+trong `st.session_state`. File upload, metadata và lịch sử phiên bản không được ghi lên ổ
+đĩa server, không được chia sẻ với người truy cập khác và sẽ bị giải phóng khi Streamlit kết
+thúc phiên. Vì vậy lịch sử cũng không còn sau khi đóng phiên hoặc app khởi động lại.
+
+Để triển khai:
 
 1. **Container hóa**: dùng `Dockerfile` có sẵn.
    ```bash
    docker build -t vat-draft-app .
    docker run -p 8501:8501 -e AUTH_MODE=none vat-draft-app
    ```
-   Gắn volume vào `/app/data/local_storage` nếu muốn dữ liệu tồn tại qua các lần restart
-   container khi vẫn dùng `LocalStorageAdapter`.
-2. **Supabase Storage** (khi sẵn sàng): cài đặt các phương thức còn để trống trong
+2. **Supabase Storage** chỉ nên dùng nếu sau này thực sự cần lưu dữ liệu lâu dài và đã có
+   phân quyền theo từng người dùng. Khi đó cài đặt các phương thức còn để trống trong
    `src/storage/supabase.py`, dùng Supabase Storage bucket cho file Excel và một bảng nhỏ
    (hoặc JSON trong bucket) cho metadata phiên bản — interface `StorageAdapter` đã được thiết
    kế để không phải sửa lại `src/session.py` hay logic nghiệp vụ.

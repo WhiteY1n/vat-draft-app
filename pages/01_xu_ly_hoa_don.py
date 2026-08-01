@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import io
+
 import pandas as pd
 import streamlit as st
 
@@ -202,3 +204,12 @@ if result is not None:
                     ),
                 },
             )
+
+        csv_buffer = io.StringIO()
+        result_df.to_csv(csv_buffer, index=False)
+        st.download_button(
+            "⬇️ Tải kết quả CSV",
+            data=csv_buffer.getvalue().encode("utf-8-sig"),
+            file_name="ket_qua_xu_ly_hoa_don.csv",
+            mime="text/csv",
+        )

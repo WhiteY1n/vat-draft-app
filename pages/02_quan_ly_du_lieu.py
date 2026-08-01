@@ -4,14 +4,12 @@ from __future__ import annotations
 
 from datetime import datetime
 import io
-import os
-import tempfile
 
 import pandas as pd
 import streamlit as st
 
 from src.auth import Role, get_current_user
-from src.excel_reader import read_and_validate_workbook
+from src.excel_reader import read_and_validate_workbook_bytes
 from src.session import (
     confirm_new_current_file,
     get_config,
@@ -82,11 +80,7 @@ with st.container(border=True):
         file_columns[0].write(f"**Tên file:** {uploaded_file.name}")
         file_columns[1].write(f"**Dung lượng:** {len(file_bytes):,} bytes")
 
-        tmp_path = os.path.join(tempfile.gettempdir(), f"upload_check_{uploaded_file.name}")
-        with open(tmp_path, "wb") as file_handle:
-            file_handle.write(file_bytes)
-
-        check = read_and_validate_workbook(tmp_path, file_name=uploaded_file.name)
+        check = read_and_validate_workbook_bytes(file_bytes, uploaded_file.name)
         st.session_state["pending_check"] = check
         st.session_state["pending_file_bytes"] = file_bytes
         st.session_state["pending_file_name"] = uploaded_file.name
@@ -150,7 +144,7 @@ if check is not None:
             file_name="bao_cao_loi_file.csv",
         )
     else:
-        st.info("Xác nhận bên dưới sẽ tạo một phiên bản mới; file hiện tại chỉ đổi sau khi lưu thành công.")
+        st.info("Xác nhận bên dưới sẽ giữ file trong phiên hiện tại; người dùng khác không thể xem file này.")
         if st.button("✅ Dùng làm dữ liệu hiện tại", type="primary"):
             version_id = confirm_new_current_file(
                 st.session_state["pending_file_bytes"],
