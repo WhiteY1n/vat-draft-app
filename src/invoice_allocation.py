@@ -42,6 +42,7 @@ class InvoiceAllocationLine:
     gia_ban: Any
     ma_vat: str
     ten_vat: str
+    ma_ke_toan: str
     ten_ke_toan: str
     dvt: str
     nguon: str
@@ -250,6 +251,7 @@ def _build_line(
         gia_ban=item.query.gia_ban,
         ma_vat=item.mapping.ma_vat_kiot,
         ten_vat=item.mapping.ten_truoc_vat or stock.ten_vat_kiot,
+        ma_ke_toan=stock.ma_ke_toan,
         ten_ke_toan=stock.ten_ke_toan,
         dvt=stock.don_vi_tinh,
         nguon=stock.nguon,
@@ -498,6 +500,7 @@ def build_allocation_display_rows(lines: list[InvoiceAllocationLine]) -> list[di
             "Giá bán": to_float_or_none(line.gia_ban),
             "Mã VAT": line.ma_vat,
             "TÊN VAT": line.ten_vat,
+            "MÃ KT": line.ma_ke_toan,
             "TÊN KẾ TOÁN": line.ten_ke_toan,
             "ĐVT": line.dvt,
             "NGUỒN": line.nguon,
