@@ -268,3 +268,25 @@ h1 {
 [data-testid="stMainBlockContainer"] [data-testid="stPageLink"] a {
   font-size: 0.88rem;
 }
+
+/* --- Ẩn nút toggle sidebar (không dùng sidebar nữa) --- */
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="collapsedControl"] {
+  display: none !important;
+}
+
+/* --- Nút refresh 🔄 trong top bar --- */
+[class*="st-key-refresh-btn-"] button {
+  width: 2.4rem;
+  height: 2.65rem;
+  border-radius: 10px;
+  padding: 0;
+  font-size: 1.1rem;
+  border: 1px solid var(--app-border);
+  background: transparent;
+  transition: background 0.15s, transform 0.15s;
+}
+[class*="st-key-refresh-btn-"] button:hover {
+  background: #eef2f8;
+  transform: rotate(30deg);
+}

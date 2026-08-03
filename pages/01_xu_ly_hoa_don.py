@@ -37,30 +37,29 @@ user = get_current_user(config, session_email=st.session_state.get("user_email")
 meta = get_current_version_metadata()
 
 # ---------------------------------------------------------------------------
-# Sidebar: Nút cập nhật dữ liệu từ Google Sheets
+# Auto-fetch khi vào trang lần đầu (hoặc sau khi server restart)
 # ---------------------------------------------------------------------------
-with st.sidebar:
-    st.markdown("### 📊 Dữ liệu")
-    if st.button("🔄 Cập nhật từ Google Sheet", use_container_width=True, key="sidebar-refresh-btn"):
-        with st.spinner("Đang tải dữ liệu..."):
-            try:
-                load_workbook_from_sheets(config)
-                st.success(
-                    f"✅ Cập nhật thành công\n\n"
-                    f"🕐 {st.session_state.get('sheets_timestamp', '')}"
-                )
-                st.rerun()
-            except Exception as e:
-                st.error(f"❌ Lỗi cập nhật: {e}")
-                st.info("💡 Kiểm tra: Link Sheet có public không? GID có đúng không?")
+if st.session_state.get("current_workbook") is None:
+    with st.spinner("⏳ Đang tải dữ liệu từ Google Sheets..."):
+        try:
+            load_workbook_from_sheets(config)
+            st.rerun()
+        except Exception as e:
+            st.error(f"❌ Không thể tải dữ liệu: {e}")
+            st.stop()
 
-    timestamp = st.session_state.get("sheets_timestamp")
-    if timestamp:
-        st.caption(f"🕐 Cập nhật: {timestamp}")
-    else:
-        st.warning("⚠️ Chưa tải dữ liệu.")
+# ---------------------------------------------------------------------------
+# Render top bar + xử lý nút Cập nhật thủ công
+# ---------------------------------------------------------------------------
+refresh_clicked = render_feature_top_bar(active="xu_ly_hoa_don", meta=meta, config=config, user=user)
 
-render_feature_top_bar(active="xu_ly_hoa_don", meta=meta, config=config, user=user)
+if refresh_clicked:
+    with st.spinner("⏳ Đang tải dữ liệu từ Google Sheets..."):
+        try:
+            load_workbook_from_sheets(config)
+            st.rerun()
+        except Exception as e:
+            st.error(f"❌ Lỗi cập nhật: {e}")
 
 # ---------------------------------------------------------------------------
 # Lấy workbook hiện tại từ session_state
@@ -68,9 +67,7 @@ render_feature_top_bar(active="xu_ly_hoa_don", meta=meta, config=config, user=us
 workbook = st.session_state.get("current_workbook")
 
 if workbook is None or not workbook.is_valid:
-    st.error(
-        "Chưa có dữ liệu hợp lệ. Bấm **🔄 Cập nhật từ Google Sheet** trên sidebar để tải lại."
-    )
+    st.error("Dữ liệu không hợp lệ. Bấm **🔄** để thử tải lại.")
     if workbook is not None and workbook.errors:
         with st.expander("Chi tiết lỗi dữ liệu"):
             for err in workbook.errors:

@@ -30,14 +30,32 @@ apply_global_styles()
 config = get_config()
 user = get_current_user(config, session_email=st.session_state.get("user_email"))
 meta = get_current_version_metadata()
+
+# Auto-fetch khi vào trang lần đầu
+if st.session_state.get("current_workbook") is None:
+    with st.spinner("⏳ Đang tải dữ liệu từ Google Sheets..."):
+        try:
+            from src.session import load_workbook_from_sheets
+            load_workbook_from_sheets(config)
+            st.rerun()
+        except Exception as e:
+            st.error(f"❌ Không thể tải dữ liệu: {e}")
+            st.stop()
+
+refresh_clicked = render_feature_top_bar(active="tra_cuu_nguon", meta=meta, config=config, user=user)
 workbook = get_current_workbook()
 
-render_feature_top_bar(active="tra_cuu_nguon", meta=meta, config=config, user=user)
+if refresh_clicked:
+    with st.spinner("⏳ Đang tải dữ liệu từ Google Sheets..."):
+        try:
+            from src.session import load_workbook_from_sheets
+            load_workbook_from_sheets(config)
+            st.rerun()
+        except Exception as e:
+            st.error(f"❌ Lỗi cập nhật: {e}")
 
 if workbook is None or not workbook.is_valid:
-    st.error(
-        "Chưa có dữ liệu hợp lệ. Bấm **🔄 Cập nhật từ Google Sheet** trên sidebar ở trang Xử lý hóa đơn."
-    )
+    st.error("Dữ liệu không hợp lệ. Bấm **🔄** để thử tải lại.")
     st.stop()
 
 if "source_lookup_df" not in st.session_state:

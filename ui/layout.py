@@ -30,11 +30,11 @@ def _render_admin_popover(*, key: str) -> None:
 def render_feature_top_bar(
     *,
     active: str,
-    meta=None,  # không dùng nữa, giữ tham số để không phá API cũ
+    meta=None,
     config,
     user,
-) -> None:
-    """Thanh trên cùng cho 2 trang chính: tiêu đề, nút chuyển chức năng, trạng thái dữ liệu."""
+) -> bool:
+    """Thanh trên cùng cho 2 trang chính. Trả về True nếu người dùng bấm nút Cập nhật."""
 
     _page, title, icon = FEATURE_PAGES[active]
     other_key = "tra_cuu_nguon" if active == "xu_ly_hoa_don" else "xu_ly_hoa_don"
@@ -43,7 +43,7 @@ def render_feature_top_bar(
     timestamp = st.session_state.get("sheets_timestamp")
 
     title_col, switch_col, status_col, admin_col = st.columns(
-        [2.8, 1.95, 3.5, 0.4], gap="small"
+        [2.5, 2.0, 4.5, 0.5], gap="small"
     )
     with title_col:
         st.markdown(f"## {icon} {title}")
@@ -51,24 +51,34 @@ def render_feature_top_bar(
         with st.container(key=f"switch-to-{other_key}"):
             st.page_link(other_page, label=f"Chuyển sang {other_title}", icon=other_icon)
     with status_col:
-        if timestamp:
-            st.markdown(
-                "<div class='data-status-inline'>"
-                "<span aria-hidden='true'>🟢</span>"
-                "<b class='data-status-inline__file'>Google Sheets</b>"
-                f"<span class='data-status-inline__updated'>Cập nhật {escape(timestamp)}</span>"
-                "</div>",
-                unsafe_allow_html=True,
-            )
-        else:
-            st.markdown(
-                "<div class='data-status-inline data-status-inline--missing'>"
-                "⚪ Chưa có dữ liệu</div>",
-                unsafe_allow_html=True,
+        # Status text + nút refresh cùng 1 hàng trong status_col
+        txt_col, btn_col = st.columns([1, 0.13], gap="small")
+        with txt_col:
+            if timestamp:
+                st.markdown(
+                    "<div class='data-status-inline'>"
+                    "<span aria-hidden='true'>🟢</span>"
+                    "<b class='data-status-inline__file'>Google Sheets</b>"
+                    f"<span class='data-status-inline__updated'>Cập nhật {escape(timestamp)}</span>"
+                    "</div>",
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.markdown(
+                    "<div class='data-status-inline data-status-inline--missing'>"
+                    "⚪ Chưa có dữ liệu — đang tải...</div>",
+                    unsafe_allow_html=True,
+                )
+        with btn_col:
+            refresh_clicked = st.button(
+                "🔄",
+                key=f"refresh-btn-{active}",
+                help="Cập nhật dữ liệu từ Google Sheets",
             )
     with admin_col:
         _render_admin_popover(key=f"admin-popover-{active}")
     st.divider()
+    return refresh_clicked
 
 
 def render_admin_top_bar(

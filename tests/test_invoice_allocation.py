@@ -441,7 +441,7 @@ def test_invoice_page_renders_allocation_and_shortage_tables(monkeypatch):
         "SP02\tSản phẩm 2\t50\t9000\n"
         "KHONGCO\tSản phẩm không có\t10\t8000"
     )
-    app.button[0].click().run()
+    app.button(key="paste-read-btn").click().run()
 
     assert not [exception.message for exception in app.exception]
 
