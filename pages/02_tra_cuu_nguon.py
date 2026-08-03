@@ -119,7 +119,7 @@ if lookup_clicked:
     for line in pasted.splitlines():
         if not line.strip():
             continue
-        cols = (line.split("\t") + ["", "", "", ""])[:4]
+        cols = (line.split("\t") + ["", "", "", "", ""])[:5]
         if cols[0].strip().casefold() in {"mã sp", "ma sp", "mã kiot", "ma kiot"}:
             continue
         parsed.append(cols)
@@ -143,7 +143,7 @@ if file_lookup_clicked:
             rows = parsed_rows
 
 if rows is not None:
-    lookup_df = pd.DataFrame(rows, columns=["Mã SP", "Tên SP", "SL", "Giá bán"])
+    lookup_df = pd.DataFrame(rows, columns=["Mã SP", "Tên SP", "SL", "Giá bán", "Ghi chú hàng hóa"])
     st.session_state["source_lookup_df"] = lookup_df
 
     queries = []
@@ -159,6 +159,7 @@ if rows is not None:
                 ten_sp=ten_sp,
                 sl=row.get("SL", ""),
                 gia_ban=row.get("Giá bán", ""),
+                ghi_chu_hang_hoa=row.get("Ghi chú hàng hóa", ""),
             )
         )
 
