@@ -116,7 +116,7 @@ if lookup_clicked:
 if result is not None:
     render_section_header(
         "Kết quả tra cứu nguồn",
-        "Chỉ hiện nguồn có tồn nháp dương; trong từng sản phẩm, tồn ít được xếp trước.",
+        "Hiển thị mọi nguồn có trong file; nguồn còn tồn dương được xếp trước, sau đó đến nguồn hết/âm tồn.",
     )
 
     if result.issues:

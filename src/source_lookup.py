@@ -290,17 +290,48 @@ def lookup_sources(
     return result
 
 
+def _add_gop_vat_mapping_fallbacks(
+    mappings_by_code: dict[str, list[MappingRow]],
+    stock_rows: list[StockRow],
+) -> None:
+    """Bổ sung Mã SP chỉ có trong cột ``Mã kiot đại diện`` của Gộp VAT.
+
+    Mapping khai báo trong Khớp mã luôn được ưu tiên. Chỉ khi mã chưa có ở
+    Khớp mã mới dựng mapping dự phòng từ chính dòng Gộp VAT.
+    """
+
+    fallback_by_code: dict[str, list[MappingRow]] = {}
+    for stock in stock_rows or []:
+        ma_sp_norm = normalize_code_for_match(stock.ma_kiot_dai_dien)
+        if not ma_sp_norm or ma_sp_norm in mappings_by_code:
+            continue
+        fallback_by_code.setdefault(ma_sp_norm, []).append(
+            MappingRow(
+                row_index=stock.row_index,
+                ma_sp=stock.ma_kiot_dai_dien,
+                ten_sp=stock.ten_kiot_dai_dien,
+                ma_vat_kiot=stock.ma_vat_kiot,
+                ten_truoc_vat=stock.ten_vat_kiot,
+                ma_sp_norm=ma_sp_norm,
+                ma_vat_kiot_norm=stock.ma_vat_kiot_norm,
+            )
+        )
+
+    mappings_by_code.update(fallback_by_code)
+
+
 def lookup_all_sources(
     queries: list[SourceLookupInput],
     mapping_rows: list[MappingRow],
     stock_rows: list[StockRow],
     config: AppConfig | None = None,
 ) -> SourceLookupResult:
-    """Trả toàn bộ nguồn còn tồn dương cho từng input, tồn ít đứng trước.
+    """Trả toàn bộ nguồn có trong file cho từng input.
 
     Hàm này dành riêng cho trang Tra cứu nguồn. Khác với ``lookup_sources``
-    dùng ở trang Xử lý hóa đơn, hàm không chọn một nguồn đại diện và không giữ
-    dòng tồn bằng 0/âm.
+    dùng ở trang Xử lý hóa đơn, hàm không chọn một nguồn đại diện. Nguồn còn
+    tồn dương được xếp trước (tồn ít đứng trước), sau đó mới đến nguồn hết/âm
+    tồn để người dùng vẫn tra thấy sản phẩm thực sự có trong file.
     """
 
     config = config or AppConfig()
@@ -316,11 +347,10 @@ def lookup_all_sources(
         if name_norm:
             mappings_by_name.setdefault(name_norm, []).append(mapping)
 
+    _add_gop_vat_mapping_fallbacks(mappings_by_code, stock_rows)
+
     for stock in stock_rows:
         if not stock.ma_vat_kiot_norm:
-            continue
-        if stock.ton_co_the_nhap <= 0:
-            result.skipped_non_positive_stock_count += 1
             continue
         stock_by_vat.setdefault(stock.ma_vat_kiot_norm, []).append(stock)
 
@@ -390,7 +420,10 @@ def lookup_all_sources(
         candidates = sorted(
             stock_by_vat.get(next(iter(distinct_vat)), []),
             key=lambda stock: (
-                stock.ton_co_the_nhap,
+                stock.ton_co_the_nhap <= 0,
+                stock.ton_co_the_nhap
+                if stock.ton_co_the_nhap > 0
+                else -stock.ton_co_the_nhap,
                 normalize_code_for_match(stock.nguon),
                 stock.row_index,
             ),
@@ -401,8 +434,8 @@ def lookup_all_sources(
                 query,
                 mapping.ma_sp,
                 mapping.ten_sp,
-                "khong_con_ton_duong",
-                f"Mã VAT '{mapping.ma_vat_kiot}' không còn nguồn có tồn nháp dương.",
+                "khong_co_nguon",
+                f"Mã VAT '{mapping.ma_vat_kiot}' không có dòng nguồn trong sheet Gộp VAT.",
             )
             continue
 

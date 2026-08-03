@@ -215,7 +215,7 @@ def test_display_rows_have_exact_invoice_columns_and_calculated_draft_price():
     assert rows[0]["GIÁ NHÁP (Giá bán/(1+%VAT))"] == 10648.15
 
 
-def test_all_sources_excludes_non_positive_and_sorts_low_stock_first():
+def test_all_sources_keeps_non_positive_stock_after_positive_sources():
     mappings = [make_mapping_row(2, "BTT8422", "Bông tẩy trang", "VAT10636")]
     stocks = [
         make_stock_row(2, "CAO", "VAT10636", "Bông tẩy trang", "Túi", 11403),
@@ -233,8 +233,26 @@ def test_all_sources_excludes_non_positive_and_sorts_low_stock_first():
     )
 
     assert not result.issues
-    assert [line.ton_con_nhap for line in result.lines] == [1, 50, 11403]
-    assert result.skipped_non_positive_stock_count == 2
+    assert [line.ton_con_nhap for line in result.lines] == [1, 50, 11403, 0, -2]
+    assert result.skipped_non_positive_stock_count == 0
+
+
+def test_all_sources_falls_back_to_representative_code_from_gop_vat():
+    stock = make_stock_row(2, "MAY", "VAT01", "Tên kế toán", "Cái", 0)
+    stock.ma_kiot_dai_dien = "ONLY-GOP"
+    stock.ten_kiot_dai_dien = "Chỉ có trong Gộp VAT"
+
+    result = lookup_all_sources(
+        [SourceLookupInput(1, ma_sp=" only-gop ")],
+        mapping_rows=[],
+        stock_rows=[stock],
+    )
+
+    assert not result.issues
+    assert len(result.lines) == 1
+    assert result.lines[0].ma_sp == "ONLY-GOP"
+    assert result.lines[0].ma_vat == "VAT01"
+    assert result.lines[0].ton_con_nhap == 0
 
 
 def test_all_sources_display_blanks_repeated_input_columns():
