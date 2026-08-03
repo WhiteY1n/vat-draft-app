@@ -11,8 +11,9 @@ from src.invoice_allocation import (
     allocate_invoice_sources,
     build_allocation_display_rows,
     build_shortage_display_rows,
+    build_unavailable_display_rows,
 )
-from src.source_lookup import SourceLookupInput
+from src.source_lookup import SourceLookupInput, SourceLookupIssue
 
 from tests.factories import make_mapping_row, make_stock_row
 
@@ -216,6 +217,35 @@ def test_unknown_product_code_becomes_issue():
     assert result.issues[0].issue_type == "khong_tim_thay_ma"
 
 
+def test_code_missing_from_khop_ma_falls_back_to_gop_vat_representative_code():
+    stocks = [make_stock_row(2, "MAY", "VAT01", "KT1", "Cái", 100)]
+    stocks[0].ma_kiot_dai_dien = "SP-GOP"
+    stocks[0].ten_kiot_dai_dien = "Sản phẩm chỉ có trong Gộp VAT"
+
+    result = _run([SourceLookupInput(1, ma_sp=" sp-gop ", sl=25)], [], stocks)
+
+    assert not result.issues and not result.shortages
+    assert _plan(result) == [("MAY", 25)]
+    assert result.lines[0].ma_sp == "SP-GOP"
+    assert result.lines[0].ma_vat == "VAT01"
+
+
+def test_khop_ma_mapping_wins_over_gop_vat_fallback():
+    mappings = [make_mapping_row(2, "SP01", "Sản phẩm 1", "VAT-KHOP")]
+    stocks = [
+        make_stock_row(2, "MAY", "VAT-GOP", "KT Gộp", "Cái", 100),
+        make_stock_row(3, "CAO", "VAT-KHOP", "KT Khớp", "Cái", 100),
+    ]
+    stocks[0].ma_kiot_dai_dien = "SP01"
+    stocks[0].ten_kiot_dai_dien = "Tên từ Gộp VAT"
+
+    result = _run([SourceLookupInput(1, ma_sp="SP01", sl=25)], mappings, stocks)
+
+    assert not result.issues and not result.shortages
+    assert _plan(result) == [("CAO", 25)]
+    assert result.lines[0].ma_vat == "VAT-KHOP"
+
+
 # 8. SL rỗng, bằng 0, âm hoặc không phải số ----------------------------------
 
 
@@ -266,13 +296,40 @@ def test_zero_and_empty_stock_rows_are_skipped():
     assert result.skipped_non_positive_stock_count == 2
 
 
-def test_product_with_only_zero_stock_is_reported():
+def test_product_with_only_zero_stock_is_recognized_then_reported_as_shortage():
     stocks = [make_stock_row(2, "MAY", "VAT01", "KT1", "Cái", 0)]
 
     result = _run([SourceLookupInput(1, ma_sp="SP01", sl=10)], _mappings(), stocks)
 
     assert not result.lines
-    assert result.issues[0].issue_type == "khong_con_ton_duong"
+    assert not result.issues
+    assert len(result.shortages) == 1
+    assert result.shortages[0].ma_sp == "SP01"
+    assert result.shortages[0].tong_ton == 0
+    assert result.shortages[0].thieu == 10
+    assert result.skipped_non_positive_stock_count == 1
+
+
+def test_non_positive_stock_does_not_bias_source_frequency():
+    mappings = _mappings() + [make_mapping_row(3, "SP02", "Sản phẩm 2", "VAT02")]
+    stocks = [
+        make_stock_row(2, "MAY", "VAT01", "KT1", "Cái", 100),
+        make_stock_row(3, "CAO", "VAT01", "KT2", "Cái", 100),
+        make_stock_row(4, "CAO", "VAT02", "KT3", "Cái", 0),
+    ]
+
+    result = _run(
+        [
+            SourceLookupInput(1, ma_sp="SP01", sl=50),
+            SourceLookupInput(2, ma_sp="SP02", sl=1),
+        ],
+        mappings,
+        stocks,
+    )
+
+    # SP02 hết tồn không được làm CAO trông như nguồn xuất hiện thường xuyên hơn.
+    assert _plan(result) == [("MAY", 50)]
+    assert [shortage.ma_sp for shortage in result.shortages] == ["SP02"]
 
 
 # 10. Nhiều sản phẩm cùng lúc, có hợp lệ và không hợp lệ ---------------------
@@ -379,7 +436,11 @@ def test_invoice_page_renders_allocation_and_shortage_tables(monkeypatch):
     app.session_state["current_workbook_cache_id"] = None
     app.run()
 
-    app.text_area(key="paste_area").set_value("SP01\tSản phẩm 1\t200\t10000\nSP02\tSản phẩm 2\t50\t9000")
+    app.text_area(key="paste_area").set_value(
+        "SP01\tSản phẩm 1\t200\t10000\n"
+        "SP02\tSản phẩm 2\t50\t9000\n"
+        "KHONGCO\tSản phẩm không có\t10\t8000"
+    )
     app.button[0].click().run()
 
     assert not [exception.message for exception in app.exception]
@@ -387,10 +448,21 @@ def test_invoice_page_renders_allocation_and_shortage_tables(monkeypatch):
     result = app.session_state["check_result"]
     assert _plan(result) == [("MAY", 150), ("CAO", 50)]
     assert [shortage.ma_sp for shortage in result.shortages] == ["SP02"]
+    assert [issue.ma_sp for issue in result.issues] == ["KHONGCO"]
 
     tables = [dataframe.value for dataframe in app.dataframe]
     assert any("NGUỒN" in table.columns for table in tables)
     assert any("Ghi chú" in table.columns for table in tables)
+    unavailable_table = next(table for table in tables if "Trạng thái trong file" in table.columns)
+    assert unavailable_table.iloc[0]["Trạng thái trong file"] == "Không có trong cả 2 sheet"
+
+    subheaders = [subheader.value for subheader in app.subheader]
+    result_sections = [
+        subheaders.index("Sản phẩm thỏa mãn"),
+        subheaders.index("Sản phẩm không đủ tồn"),
+        subheaders.index("Sản phẩm không tồn tại"),
+    ]
+    assert result_sections == sorted(result_sections)
 
 
 def test_shortage_display_rows():
@@ -401,3 +473,25 @@ def test_shortage_display_rows():
 
     assert rows[0]["Còn thiếu"] == 15
     assert rows[0]["Ghi chú"] == "Không đủ số lượng tồn — thiếu 15"
+
+
+def test_unavailable_rows_explain_presence_in_each_sheet():
+    mappings = [make_mapping_row(2, "ONLY-KHOP", "Chỉ Khớp", "VAT-MISSING")]
+    stocks = [make_stock_row(2, "MAY", "VAT-GOP", "KT", "Cái", 10)]
+    stocks[0].ma_kiot_dai_dien = "ONLY-GOP"
+    issues = [
+        SourceLookupIssue(1, "NOWHERE", "Không đâu", "khong_tim_thay_ma", "Không tìm thấy mã."),
+        SourceLookupIssue(2, "ONLY-KHOP", "Chỉ Khớp", "khong_con_ton_duong", "Không có nguồn."),
+        SourceLookupIssue(3, "ONLY-GOP", "Chỉ Gộp", "ma_vat_khong_duy_nhat", "Cần kiểm tra VAT."),
+    ]
+
+    rows = build_unavailable_display_rows(issues, mappings, stocks)
+
+    assert [row["Trạng thái trong file"] for row in rows] == [
+        "Không có trong cả 2 sheet",
+        "Chỉ có trong Khớp mã",
+        "Chỉ có trong Gộp VAT",
+    ]
+    assert "cả Gộp VAT và Khớp mã" in rows[0]["Nội dung"]
+    assert "sheet Gộp VAT" in rows[1]["Nội dung"]
+    assert "sheet Khớp mã" in rows[2]["Nội dung"]

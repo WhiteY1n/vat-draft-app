@@ -101,6 +101,7 @@ def allocate_invoice_sources(
     result = InvoiceAllocationResult()
 
     mappings_by_code, mappings_by_name = _build_mapping_indexes(mapping_rows)
+    _add_gop_vat_mapping_fallbacks(mappings_by_code, stock_rows)
     stock_by_vat = _build_stock_index(stock_rows, result)
 
     resolved: list[_ResolvedQuery] = []
@@ -111,11 +112,15 @@ def allocate_invoice_sources(
         if item is not None:
             resolved.append(item)
 
-    # Số lần xuất hiện của mỗi nguồn trong dữ liệu hóa đơn hiện tại: đếm theo
-    # số sản phẩm có nguồn đó, không đếm trùng nhiều dòng tồn của cùng sản phẩm.
+    # Số lần xuất hiện của mỗi nguồn còn tồn dương trong dữ liệu hóa đơn hiện tại:
+    # đếm theo số sản phẩm có nguồn đó, không đếm trùng nhiều dòng tồn của cùng
+    # sản phẩm. Dòng tồn <= 0 vẫn được giữ để phân biệt "đã hết tồn" với
+    # "Mã VAT không tồn tại", nhưng không được ảnh hưởng thứ tự chọn nguồn.
     appearance_count: dict[str, int] = {}
     for item in resolved:
-        for nguon in {c.stock.nguon for c in item.candidates}:
+        for nguon in {
+            c.stock.nguon for c in item.candidates if c.stock.ton_co_the_nhap > 0
+        }:
             appearance_count[nguon] = appearance_count.get(nguon, 0) + 1
 
     priority_list = [normalize_code_for_match(s) for s in config.source_tiebreak_priority]
@@ -273,6 +278,38 @@ def _build_mapping_indexes(
     return by_code, by_name
 
 
+def _add_gop_vat_mapping_fallbacks(
+    mappings_by_code: dict[str, list[MappingRow]],
+    stock_rows: list[StockRow],
+) -> None:
+    """Bổ sung Mã SP chỉ có trong cột ``Mã kiot đại diện`` của Gộp VAT.
+
+    ``Khớp mã`` vẫn là nguồn ưu tiên: nếu mã đã tồn tại ở sheet đó thì không
+    trộn thêm các dòng Gộp VAT, tránh làm thay đổi mapping được khai báo rõ ràng.
+    Với mã chưa có trong Khớp mã, giữ mọi Mã VAT tìm thấy trong Gộp VAT để bước
+    resolve hiện hữu vẫn phát hiện được trường hợp một Mã SP trỏ nhiều Mã VAT.
+    """
+
+    fallback_by_code: dict[str, list[MappingRow]] = {}
+    for stock in stock_rows or []:
+        ma_sp_norm = normalize_code_for_match(stock.ma_kiot_dai_dien)
+        if not ma_sp_norm or ma_sp_norm in mappings_by_code:
+            continue
+        fallback_by_code.setdefault(ma_sp_norm, []).append(
+            MappingRow(
+                row_index=stock.row_index,
+                ma_sp=stock.ma_kiot_dai_dien,
+                ten_sp=stock.ten_kiot_dai_dien,
+                ma_vat_kiot=stock.ma_vat_kiot,
+                ten_truoc_vat=stock.ten_vat_kiot,
+                ma_sp_norm=ma_sp_norm,
+                ma_vat_kiot_norm=stock.ma_vat_kiot_norm,
+            )
+        )
+
+    mappings_by_code.update(fallback_by_code)
+
+
 def _build_stock_index(
     stock_rows: list[StockRow], result: InvoiceAllocationResult
 ) -> dict[str, list[StockRow]]:
@@ -280,11 +317,12 @@ def _build_stock_index(
     for stock in stock_rows or []:
         if not stock.ma_vat_kiot_norm:
             continue
-        # Tồn không phải số đã bị loại từ excel_reader; ở đây loại tồn <= 0
-        # vì không thể phân bổ, nhưng vẫn giữ mã VAT để báo thiếu tồn.
+        # Tồn không phải số đã bị loại từ excel_reader. Không loại dòng tồn <= 0
+        # khỏi chỉ mục tại đây: bước resolve cần nhìn thấy chúng để phân biệt một
+        # Mã VAT có trong Gộp VAT nhưng đã hết tồn với một Mã VAT hoàn toàn không
+        # tồn tại. Việc loại khỏi ứng viên phân bổ nằm ở _allocate_one_product.
         if stock.ton_co_the_nhap is None or stock.ton_co_the_nhap <= 0:
             result.skipped_non_positive_stock_count += 1
-            continue
         stock_by_vat.setdefault(stock.ma_vat_kiot_norm, []).append(stock)
     return stock_by_vat
 
@@ -486,3 +524,68 @@ def build_shortage_display_rows(shortages: list[InvoiceShortage]) -> list[dict[s
         }
         for shortage in shortages
     ]
+
+
+def build_unavailable_display_rows(
+    issues: list[SourceLookupIssue],
+    mapping_rows: list[MappingRow],
+    stock_rows: list[StockRow],
+) -> list[dict[str, Any]]:
+    """Tạo bảng lỗi kèm trạng thái tồn tại của sản phẩm trong từng sheet."""
+
+    mapping_vats_by_code: dict[str, set[str]] = {}
+    for mapping in mapping_rows or []:
+        if mapping.ma_sp_norm:
+            mapping_vats_by_code.setdefault(mapping.ma_sp_norm, set()).add(
+                mapping.ma_vat_kiot_norm
+            )
+
+    stock_vats = {stock.ma_vat_kiot_norm for stock in stock_rows or [] if stock.ma_vat_kiot_norm}
+    direct_gop_codes = {
+        normalize_code_for_match(stock.ma_kiot_dai_dien)
+        for stock in stock_rows or []
+        if normalize_code_for_match(stock.ma_kiot_dai_dien)
+    }
+
+    rows: list[dict[str, Any]] = []
+    for issue in issues or []:
+        code_norm = normalize_code_for_match(issue.ma_sp)
+        in_khop_ma = bool(code_norm and code_norm in mapping_vats_by_code)
+        mapped_vats = mapping_vats_by_code.get(code_norm, set())
+        in_gop_vat = bool(
+            code_norm
+            and (
+                code_norm in direct_gop_codes
+                or any(vat and vat in stock_vats for vat in mapped_vats)
+            )
+        )
+
+        if not code_norm:
+            sheet_status = "Không xác định được Mã SP"
+            presence_detail = "Không có Mã SP để kiểm tra trong hai sheet."
+        elif in_gop_vat and in_khop_ma:
+            sheet_status = "Có trong cả 2 sheet"
+            presence_detail = (
+                "Sản phẩm có trong cả Gộp VAT và Khớp mã nhưng chưa thỏa điều kiện xử lý."
+            )
+        elif in_gop_vat:
+            sheet_status = "Chỉ có trong Gộp VAT"
+            presence_detail = "Không tìm thấy sản phẩm trong sheet Khớp mã."
+        elif in_khop_ma:
+            sheet_status = "Chỉ có trong Khớp mã"
+            presence_detail = "Không tìm thấy sản phẩm hoặc Mã VAT tương ứng trong sheet Gộp VAT."
+        else:
+            sheet_status = "Không có trong cả 2 sheet"
+            presence_detail = "Không tìm thấy sản phẩm trong cả Gộp VAT và Khớp mã."
+
+        rows.append(
+            {
+                "Dòng nhập": issue.query_order,
+                "Mã SP": issue.ma_sp,
+                "Tên SP": issue.ten_sp,
+                "Trạng thái trong file": sheet_status,
+                "Nội dung": f"{presence_detail} {issue.detail}".strip(),
+            }
+        )
+
+    return rows

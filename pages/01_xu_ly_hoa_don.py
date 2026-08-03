@@ -13,6 +13,7 @@ from src.invoice_allocation import (
     allocate_invoice_sources,
     build_allocation_display_rows,
     build_shortage_display_rows,
+    build_unavailable_display_rows,
 )
 from src.result_builder import CHECK_RESULT_COLUMNS
 from src.session import get_config, get_current_version_metadata, get_current_workbook
@@ -137,56 +138,24 @@ if result is not None:
 
     input_count = st.session_state.get("last_input_count", 0)
     output_count = len({line.query_order for line in result.lines})
-    issue_count = len(result.issues) + len(result.shortages)
-    summary_columns = st.columns(3, gap="small")
+    shortage_count = len(result.shortages)
+    unavailable_count = len(result.issues)
+    summary_columns = st.columns(4, gap="small")
     with summary_columns[0]:
         render_metric_card("Tổng dòng đã kiểm tra", f"{input_count:,}")
     with summary_columns[1]:
-        render_metric_card("Sản phẩm đã phân bổ", f"{output_count:,}")
+        render_metric_card("Sản phẩm thỏa mãn", f"{output_count:,}")
     with summary_columns[2]:
-        render_metric_card("Dòng cần kiểm tra", f"{issue_count:,}")
+        render_metric_card("Không đủ tồn", f"{shortage_count:,}")
+    with summary_columns[3]:
+        render_metric_card("Không tồn tại", f"{unavailable_count:,}")
 
-    if result.issues:
-        st.warning(
-            f"Đã phân bổ {output_count}/{input_count} dòng; "
-            f"còn {len(result.issues)} dòng cần kiểm tra thông tin mã hoặc mapping."
-        )
-        issue_df = pd.DataFrame(
-            [
-                {
-                    "Dòng nhập": issue.query_order,
-                    "Mã SP": issue.ma_sp,
-                    "Tên SP": issue.ten_sp,
-                    "Loại kiểm tra": issue.issue_type,
-                    "Nội dung": issue.detail,
-                }
-                for issue in result.issues
-            ]
-        )
-        st.dataframe(
-            issue_df,
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "Dòng nhập": st.column_config.NumberColumn(width="small", format="%d"),
-                "Mã SP": st.column_config.TextColumn(width="medium"),
-                "Tên SP": st.column_config.TextColumn(width="large"),
-                "Loại kiểm tra": st.column_config.TextColumn(width="medium"),
-                "Nội dung": st.column_config.TextColumn(width="large"),
-            },
-        )
-    elif not result.shortages:
-        st.success(
-            f"Đã phân bổ đủ {output_count}/{input_count} dòng. "
-            "Mỗi nguồn được dùng hiển thị thành một dòng riêng."
-        )
-
+    render_section_header(
+        "Sản phẩm thỏa mãn",
+        "Các sản phẩm tồn tại trong dữ liệu, đủ số lượng và có thể xuất. Mỗi nguồn được dùng hiển thị thành một dòng riêng.",
+    )
     if result.lines:
-        render_section_header(
-            "Kết quả kiểm tra",
-            "Mỗi nguồn được dùng là một dòng riêng; các dòng của cùng một mã hàng nằm liền nhau. "
-            "Cột SL là số lượng lấy từ nguồn đó.",
-        )
+        st.success(f"Có {output_count} sản phẩm thỏa mãn điều kiện và có thể xuất.")
         result_df = pd.DataFrame(build_allocation_display_rows(result.lines)).rename(
             columns={
                 "GIÁ NHÁP (Giá bán/(1+%VAT))": "GIÁ NHÁP\n(Giá bán/(1+%VAT))"
@@ -225,12 +194,14 @@ if result is not None:
             file_name="ket_qua_xu_ly_hoa_don.csv",
             mime="text/csv",
         )
+    else:
+        st.info("Không có sản phẩm nào thỏa mãn đầy đủ điều kiện để xuất.")
 
+    render_section_header(
+        "Sản phẩm không đủ tồn",
+        "Các sản phẩm đã đối chiếu được mã nhưng tổng tồn còn nháp nhỏ hơn số lượng yêu cầu.",
+    )
     if result.shortages:
-        render_section_header(
-            "Sản phẩm không đủ tồn",
-            "Các sản phẩm có tổng tồn còn nháp nhỏ hơn SL yêu cầu nên không được phân bổ.",
-        )
         st.warning(f"Có {len(result.shortages)} sản phẩm không đủ số lượng tồn.")
         shortage_df = pd.DataFrame(build_shortage_display_rows(result.shortages))
         st.dataframe(
@@ -247,3 +218,33 @@ if result is not None:
                 "Ghi chú": st.column_config.TextColumn(width="large"),
             },
         )
+    else:
+        st.success("Không có sản phẩm nào bị thiếu tồn.")
+
+    render_section_header(
+        "Sản phẩm không tồn tại",
+        "Hiển thị rõ sản phẩm không có trong Gộp VAT, Khớp mã hoặc cả hai sheet để dễ cập nhật dữ liệu nguồn.",
+    )
+    if result.issues:
+        st.error(f"Có {len(result.issues)} sản phẩm không tồn tại hoặc chưa thể đối chiếu.")
+        unavailable_df = pd.DataFrame(
+            build_unavailable_display_rows(
+                result.issues,
+                workbook.mapping_rows,
+                workbook.stock_rows,
+            )
+        )
+        st.dataframe(
+            unavailable_df,
+            width="stretch",
+            hide_index=True,
+            column_config={
+                "Dòng nhập": st.column_config.NumberColumn(width="small", format="%d"),
+                "Mã SP": st.column_config.TextColumn(width="medium"),
+                "Tên SP": st.column_config.TextColumn(width="large"),
+                "Trạng thái trong file": st.column_config.TextColumn(width="medium"),
+                "Nội dung": st.column_config.TextColumn(width="large"),
+            },
+        )
+    else:
+        st.success("Không có sản phẩm nào thiếu dữ liệu ở Gộp VAT hoặc Khớp mã.")
