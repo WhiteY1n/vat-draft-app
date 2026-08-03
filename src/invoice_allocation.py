@@ -49,6 +49,7 @@ class InvoiceAllocationLine:
     ton_con_nhap: float
     phan_tram_vat: float | None
     gia_nhap: float | None
+    ghi_chu_hang_hoa: str = ""
 
 
 @dataclass
@@ -258,6 +259,7 @@ def _build_line(
         ton_con_nhap=stock.ton_co_the_nhap,
         phan_tram_vat=phan_tram_vat,
         gia_nhap=gia_nhap,
+        ghi_chu_hang_hoa=str(item.query.ghi_chu_hang_hoa).strip() if item.query.ghi_chu_hang_hoa else "",
     )
 
 
@@ -506,7 +508,8 @@ def build_allocation_display_rows(lines: list[InvoiceAllocationLine]) -> list[di
             "NGUỒN": line.nguon,
             "TỒN CÒN NHÁP": line.ton_con_nhap,
             "%VAT": line.phan_tram_vat * 100 if line.phan_tram_vat is not None else None,
-            "GIÁ NHÁP (Giá bán/(1+%VAT))": line.gia_nhap,
+            "GIÁ NHÁP\n(Giá bán/(1+%VAT))": line.gia_nhap,
+            "Ghi chú hàng hóa": line.ghi_chu_hang_hoa,
         }
         for line in lines
     ]

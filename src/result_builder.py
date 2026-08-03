@@ -21,6 +21,7 @@ CHECK_RESULT_COLUMNS = [
     "TỒN CÒN NHÁP",
     "%VAT",
     "GIÁ NHÁP\n(Giá bán/(1+%VAT))",
+    "Ghi chú hàng hóa",
 ]
 
 

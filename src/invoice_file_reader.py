@@ -18,6 +18,7 @@ HEADER_ALIASES: dict[str, set[str]] = {
     "ten_hang": {"tên hàng", "ten hang", "tên sp", "ten sp"},
     "so_luong": {"số lượng", "so luong", "sl"},
     "gia_ban": {"giá bán", "gia ban"},
+    "ghi_chu": {"ghi chú hàng hóa", "ghi chu hang hoa"},
 }
 
 MAX_HEADER_SCAN_ROWS = 5
@@ -97,12 +98,17 @@ def parse_invoice_file_bytes(file_bytes: bytes, file_name: str) -> InvoiceFilePa
         if "gia_ban" in col_map and col_map["gia_ban"] < len(row):
             gia_ban = row[col_map["gia_ban"]]
 
+        ghi_chu = None
+        if "ghi_chu" in col_map and col_map["ghi_chu"] < len(row):
+            ghi_chu = row[col_map["ghi_chu"]]
+
         result.rows.append(
             [
                 str(ma_hang).strip(),
                 str(ten_hang).strip() if ten_hang is not None else "",
                 "" if so_luong is None else str(so_luong).strip(),
                 "" if gia_ban is None else str(gia_ban).strip(),
+                "" if ghi_chu is None else str(ghi_chu).strip(),
             ]
         )
 

@@ -22,6 +22,7 @@ class SourceLookupInput:
     ten_sp: Any = ""
     sl: Any = ""
     gia_ban: Any = ""
+    ghi_chu_hang_hoa: Any = ""
 
 
 @dataclass

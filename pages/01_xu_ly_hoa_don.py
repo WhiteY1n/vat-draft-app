@@ -79,7 +79,7 @@ if workbook is None or not workbook.is_valid:
 # ---------------------------------------------------------------------------
 if "invoice_df" not in st.session_state:
     st.session_state["invoice_df"] = pd.DataFrame(
-        columns=["Mã SP", "Tên SP", "SL", "Giá bán"]
+        columns=["Mã SP", "Tên SP", "SL", "Giá bán", "Ghi chú hàng hóa"]
     )
 
 render_section_header(
@@ -119,7 +119,7 @@ with st.container(border=True):
         )
 
 if clear_clicked:
-    st.session_state["invoice_df"] = pd.DataFrame(columns=["Mã SP", "Tên SP", "SL", "Giá bán"])
+    st.session_state["invoice_df"] = pd.DataFrame(columns=["Mã SP", "Tên SP", "SL", "Giá bán", "Ghi chú hàng hóa"])
     st.session_state.pop("check_result", None)
     st.rerun()
 
@@ -141,7 +141,7 @@ if read_and_check_clicked:
         parsed_rows = []
         for ln in lines:
             cols = ln.split("\t")
-            cols = (cols + ["", "", "", ""])[:4]
+            cols = (cols + ["", "", "", "", ""])[:5]
             # bỏ qua dòng header nếu người dùng lỡ dán kèm header
             if cols[0].strip().lower() in ("mã sp", "ma sp") and cols[2].strip().lower() in ("sl",):
                 continue
@@ -159,7 +159,7 @@ if file_read_clicked:
             st.warning(err)
 
 if parsed_rows is not None:
-    new_df = pd.DataFrame(parsed_rows, columns=["Mã SP", "Tên SP", "SL", "Giá bán"])
+    new_df = pd.DataFrame(parsed_rows, columns=["Mã SP", "Tên SP", "SL", "Giá bán", "Ghi chú hàng hóa"])
     st.session_state["invoice_df"] = new_df
 
     df = st.session_state["invoice_df"].reset_index(drop=True)
@@ -169,6 +169,7 @@ if parsed_rows is not None:
         ten_sp = row.get("Tên SP", "")
         sl = row.get("SL", "")
         gia_ban = row.get("Giá bán", "")
+        ghi_chu = row.get("Ghi chú hàng hóa", "")
         if str(ma_sp).strip() == "" and str(ten_sp).strip() == "":
             continue  # bỏ qua dòng trống hoàn toàn
         lookup_rows.append(
@@ -178,6 +179,7 @@ if parsed_rows is not None:
                 ten_sp=ten_sp,
                 sl=sl,
                 gia_ban=gia_ban,
+                ghi_chu_hang_hoa=ghi_chu,
             )
         )
 
@@ -248,6 +250,7 @@ if result is not None:
                     "GIÁ NHÁP\n(Giá bán/(1+%VAT))": st.column_config.NumberColumn(
                         width=130, format="%.0f"
                     ),
+                    "Ghi chú hàng hóa": st.column_config.TextColumn(width=150),
                 },
             )
 
