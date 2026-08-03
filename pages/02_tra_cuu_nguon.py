@@ -18,7 +18,6 @@ from src.source_lookup import (
 from ui import (
     apply_global_styles,
     render_action_bar,
-    render_data_version_banner,
     render_feature_top_bar,
     render_section_header,
 )
@@ -36,8 +35,9 @@ workbook = get_current_workbook()
 render_feature_top_bar(active="tra_cuu_nguon", meta=meta, config=config, user=user)
 
 if workbook is None or not workbook.is_valid:
-    render_data_version_banner(meta, valid=False)
-    st.error("Chưa có dữ liệu hiện tại hợp lệ. Hãy upload và xác nhận file Excel ở trang Quản lý dữ liệu.")
+    st.error(
+        "Chưa có dữ liệu hợp lệ. Bấm **🔄 Cập nhật từ Google Sheet** trên sidebar ở trang Xử lý hóa đơn."
+    )
     st.stop()
 
 if "source_lookup_df" not in st.session_state:

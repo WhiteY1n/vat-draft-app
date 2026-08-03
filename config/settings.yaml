@@ -38,4 +38,8 @@ name_match_weights:
   # Ngưỡng điểm để đánh dấu "cần kiểm tra tên thủ công" (trang Kiểm tra dữ liệu).
   review_threshold: 55.0
 
-local_storage_root: data/local_storage
+# Google Sheets (có thể override bằng biến môi trường SHEET_ID, GID_GOP_VAT, GID_KHOP_MA)
+sheet_id: "1dNabQaiob7CMozrqjA746uV-atHWJi8gbG6L-I0yrmU"
+gid_gop_vat: 0
+gid_khop_ma: 1192158065
+

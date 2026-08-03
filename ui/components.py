@@ -6,8 +6,6 @@ from collections.abc import Sequence
 
 import streamlit as st
 
-from src.storage.base import FileVersionMetadata
-
 
 def render_section_header(title: str, description: str | None = None) -> None:
     st.subheader(title)
@@ -15,26 +13,6 @@ def render_section_header(title: str, description: str | None = None) -> None:
         st.caption(description)
 
 
-def render_data_version_banner(
-    metadata: FileVersionMetadata | None,
-    *,
-    valid: bool | None = None,
-) -> None:
-    if metadata is None:
-        st.info("Chưa có dữ liệu hiện tại. Hãy tải lên và xác nhận một file Excel hợp lệ.")
-        return
-
-    detail = (
-        f"**{metadata.original_file_name}** · "
-        f"{metadata.gop_vat_row_count:,} dòng Gộp VAT · "
-        f"{metadata.khop_ma_row_count:,} dòng Khớp mã"
-    )
-    if valid is False:
-        st.error(f"Dữ liệu hiện tại không hợp lệ · {detail}")
-    elif valid is True:
-        st.success(f"Dữ liệu sẵn sàng · {detail}")
-    else:
-        st.info(f"Đang dùng dữ liệu · {detail}")
 
 
 def render_metric_card(

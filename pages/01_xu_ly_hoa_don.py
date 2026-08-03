@@ -17,12 +17,11 @@ from src.invoice_allocation import (
 )
 from src.invoice_file_reader import parse_invoice_files
 from src.result_builder import CHECK_RESULT_COLUMNS
-from src.session import get_config, get_current_version_metadata, get_current_workbook
+from src.session import get_config, get_current_version_metadata, load_workbook_from_sheets
 from src.source_lookup import SourceLookupInput
 from ui import (
     apply_global_styles,
     render_action_bar,
-    render_data_version_banner,
     render_feature_top_bar,
     render_metric_card,
     render_section_header,
@@ -36,18 +35,51 @@ apply_global_styles()
 config = get_config()
 user = get_current_user(config, session_email=st.session_state.get("user_email"))
 meta = get_current_version_metadata()
-workbook = get_current_workbook()
+
+# ---------------------------------------------------------------------------
+# Sidebar: Nút cập nhật dữ liệu từ Google Sheets
+# ---------------------------------------------------------------------------
+with st.sidebar:
+    st.markdown("### 📊 Dữ liệu")
+    if st.button("🔄 Cập nhật từ Google Sheet", use_container_width=True, key="sidebar-refresh-btn"):
+        with st.spinner("Đang tải dữ liệu..."):
+            try:
+                load_workbook_from_sheets(config)
+                st.success(
+                    f"✅ Cập nhật thành công\n\n"
+                    f"🕐 {st.session_state.get('sheets_timestamp', '')}"
+                )
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ Lỗi cập nhật: {e}")
+                st.info("💡 Kiểm tra: Link Sheet có public không? GID có đúng không?")
+
+    timestamp = st.session_state.get("sheets_timestamp")
+    if timestamp:
+        st.caption(f"🕐 Cập nhật: {timestamp}")
+    else:
+        st.warning("⚠️ Chưa tải dữ liệu.")
 
 render_feature_top_bar(active="xu_ly_hoa_don", meta=meta, config=config, user=user)
 
+# ---------------------------------------------------------------------------
+# Lấy workbook hiện tại từ session_state
+# ---------------------------------------------------------------------------
+workbook = st.session_state.get("current_workbook")
+
 if workbook is None or not workbook.is_valid:
-    render_data_version_banner(meta, valid=False)
     st.error(
-        "Chưa có dữ liệu hiện tại hợp lệ. Vào trang Quản lý dữ liệu để upload và xác nhận "
-        "file Excel trước."
+        "Chưa có dữ liệu hợp lệ. Bấm **🔄 Cập nhật từ Google Sheet** trên sidebar để tải lại."
     )
+    if workbook is not None and workbook.errors:
+        with st.expander("Chi tiết lỗi dữ liệu"):
+            for err in workbook.errors:
+                st.write(f"- {err}")
     st.stop()
 
+# ---------------------------------------------------------------------------
+# Nhập dữ liệu hóa đơn
+# ---------------------------------------------------------------------------
 if "invoice_df" not in st.session_state:
     st.session_state["invoice_df"] = pd.DataFrame(
         columns=["Mã SP", "Tên SP", "SL", "Giá bán"]

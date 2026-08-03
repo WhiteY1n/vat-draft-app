@@ -3,7 +3,6 @@
 from ui.components import (
     render_action_bar,
     render_alert_summary,
-    render_data_version_banner,
     render_empty_state,
     render_metric_card,
     render_section_header,
@@ -16,7 +15,6 @@ __all__ = [
     "render_action_bar",
     "render_admin_top_bar",
     "render_alert_summary",
-    "render_data_version_banner",
     "render_empty_state",
     "render_feature_top_bar",
     "render_metric_card",

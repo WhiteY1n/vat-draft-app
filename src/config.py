@@ -49,7 +49,10 @@ class AppConfig:
 
     name_match: NameMatchWeights = field(default_factory=NameMatchWeights)
 
-    local_storage_root: str = "data/local_storage"
+    # Google Sheets
+    sheet_id: str = "1dNabQaiob7CMozrqjA746uV-atHWJi8gbG6L-I0yrmU"
+    gid_gop_vat: int = 0
+    gid_khop_ma: int = 1192158065
 
     raw: dict[str, Any] = field(default_factory=dict)
 
@@ -109,8 +112,10 @@ def load_config(config_path: str | None = None) -> AppConfig:
         allow_fractional_sl=raw.get("allow_fractional_sl", False),
         source_tiebreak_priority=raw.get("source_tiebreak_priority", []),
         name_match=name_match,
-        local_storage_root=os.environ.get(
-            "LOCAL_STORAGE_ROOT", raw.get("local_storage_root", "data/local_storage")
+        sheet_id=os.environ.get(
+            "SHEET_ID", raw.get("sheet_id", "1dNabQaiob7CMozrqjA746uV-atHWJi8gbG6L-I0yrmU")
         ),
+        gid_gop_vat=int(os.environ.get("GID_GOP_VAT", raw.get("gid_gop_vat", 0))),
+        gid_khop_ma=int(os.environ.get("GID_KHOP_MA", raw.get("gid_khop_ma", 1192158065))),
         raw=raw,
     )

@@ -418,7 +418,7 @@ def test_invoice_page_renders_allocation_and_shortage_tables(monkeypatch):
 
     page = Path(__file__).resolve().parent.parent / "pages" / "01_xu_ly_hoa_don.py"
     app = AppTest.from_file(str(page), default_timeout=30)
-    app.session_state["current_workbook_cache"] = WorkbookCheckResult(
+    app.session_state["current_workbook"] = WorkbookCheckResult(
         is_valid=True,
         file_name="test.xlsx",
         file_size_bytes=0,
@@ -433,7 +433,7 @@ def test_invoice_page_renders_allocation_and_shortage_tables(monkeypatch):
             make_mapping_row(3, "SP02", "Sản phẩm 2", "VAT02"),
         ],
     )
-    app.session_state["current_workbook_cache_id"] = None
+    app.session_state["sheets_timestamp"] = "03/08/2026 10:00:00"
     app.run()
 
     app.text_area(key="paste_area").set_value(

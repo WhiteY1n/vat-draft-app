@@ -12,7 +12,6 @@ from src.session import get_config, get_current_version_metadata, get_current_wo
 from ui import (
     apply_global_styles,
     render_admin_top_bar,
-    render_data_version_banner,
     render_metric_card,
     render_section_header,
 )
@@ -34,20 +33,16 @@ config = get_config()
 workbook = get_current_workbook()
 
 if workbook is None:
-    render_data_version_banner(meta, valid=False)
-    st.error("Chưa có dữ liệu hiện tại.")
+    st.error("Chưa có dữ liệu hiện tại. Bấm 🔄 Cập nhật từ Google Sheet trên sidebar ở trang Xử lý hóa đơn.")
     st.stop()
 
 if not workbook.is_valid:
-    render_data_version_banner(meta, valid=False)
     st.error("Dữ liệu hiện tại không hợp lệ nên chưa thể lập báo cáo kiểm tra.")
     if workbook.errors:
         with st.expander("Xem lỗi nghiêm trọng", expanded=True):
             for error in workbook.errors:
                 st.write(f"- {error}")
     st.stop()
-
-render_data_version_banner(meta, valid=True)
 
 gop_summary = workbook.gop_vat_summary
 khop_summary = workbook.khop_ma_summary
