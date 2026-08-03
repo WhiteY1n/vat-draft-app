@@ -15,6 +15,7 @@ from src.invoice_allocation import (
     build_shortage_display_rows,
     build_unavailable_display_rows,
 )
+from src.invoice_file_reader import parse_invoice_files
 from src.result_builder import CHECK_RESULT_COLUMNS
 from src.session import get_config, get_current_version_metadata, get_current_workbook
 from src.source_lookup import SourceLookupInput
@@ -54,16 +55,39 @@ if "invoice_df" not in st.session_state:
 
 render_section_header(
     "1. Nhập dữ liệu",
-    "Sao chép 4 cột từ Excel theo thứ tự Mã SP, Tên SP, SL, Giá bán rồi dán vào vùng bên dưới.",
+    "Dán 4 cột từ Excel theo thứ tự Mã SP, Tên SP, SL, Giá bán, hoặc tải trực tiếp file hóa đơn (.xlsx).",
 )
 with st.container(border=True):
-    pasted_text = st.text_area("Khu vực dán dữ liệu", height=150, key="paste_area")
+    tab_paste, tab_file = st.tabs(["📋 Dán dữ liệu", "📁 Tải file hóa đơn"])
 
-    col_read, col_clear, _ = render_action_bar([1.7, 1, 3])
-    with col_read:
-        read_and_check_clicked = st.button("📥 Đọc và kiểm tra dữ liệu", type="primary")
-    with col_clear:
-        clear_clicked = st.button("🗑️ Xóa toàn bộ", type="secondary")
+    with tab_paste:
+        pasted_text = st.text_area("Khu vực dán dữ liệu", height=150, key="paste_area")
+
+        col_read, col_clear, _ = render_action_bar([1.7, 1, 3])
+        with col_read:
+            read_and_check_clicked = st.button(
+                "📥 Đọc và kiểm tra dữ liệu", type="primary", key="paste-read-btn"
+            )
+        with col_clear:
+            clear_clicked = st.button("🗑️ Xóa toàn bộ", type="secondary", key="paste-clear-btn")
+
+    with tab_file:
+        st.caption(
+            "Chọn một hoặc nhiều file 'Chi tiết hóa đơn' (.xlsx) xuất từ phần mềm bán hàng. "
+            "Hệ thống tự nhận diện các cột Mã hàng, Tên hàng, Số lượng, Giá bán."
+        )
+        uploaded_invoice_files = st.file_uploader(
+            "Tải file hóa đơn (.xlsx)",
+            type=["xlsx"],
+            accept_multiple_files=True,
+            key="invoice_file_uploader",
+        )
+        file_read_clicked = st.button(
+            "📥 Đọc từ file đã tải lên",
+            type="primary",
+            key="file-read-btn",
+            disabled=not uploaded_invoice_files,
+        )
 
 if clear_clicked:
     st.session_state["invoice_df"] = pd.DataFrame(columns=["Mã SP", "Tên SP", "SL", "Giá bán"])
@@ -76,24 +100,36 @@ if result is not None and not isinstance(result, InvoiceAllocationResult):
     result = None
     st.session_state.pop("check_result", None)
 
+parsed_rows: list[list[str]] | None = None
+
 if read_and_check_clicked:
     result = None
     st.session_state.pop("check_result", None)
+    if not pasted_text.strip():
+        st.warning("Hãy dán dữ liệu hóa đơn trước khi kiểm tra.")
+    else:
+        lines = [ln for ln in pasted_text.strip("\n").split("\n") if ln.strip() != ""]
+        parsed_rows = []
+        for ln in lines:
+            cols = ln.split("\t")
+            cols = (cols + ["", "", "", ""])[:4]
+            # bỏ qua dòng header nếu người dùng lỡ dán kèm header
+            if cols[0].strip().lower() in ("mã sp", "ma sp") and cols[2].strip().lower() in ("sl",):
+                continue
+            parsed_rows.append(cols)
 
-if read_and_check_clicked and not pasted_text.strip():
-    st.warning("Hãy dán dữ liệu hóa đơn trước khi kiểm tra.")
+if file_read_clicked:
+    result = None
+    st.session_state.pop("check_result", None)
+    if not uploaded_invoice_files:
+        st.warning("Hãy chọn ít nhất một file hóa đơn (.xlsx).")
+    else:
+        files = [(f.getvalue(), f.name) for f in uploaded_invoice_files]
+        parsed_rows, parse_errors = parse_invoice_files(files)
+        for err in parse_errors:
+            st.warning(err)
 
-if read_and_check_clicked and pasted_text.strip():
-    lines = [ln for ln in pasted_text.strip("\n").split("\n") if ln.strip() != ""]
-    parsed_rows = []
-    for ln in lines:
-        cols = ln.split("\t")
-        cols = (cols + ["", "", "", ""])[:4]
-        # bỏ qua dòng header nếu người dùng lỡ dán kèm header
-        if cols[0].strip().lower() in ("mã sp", "ma sp") and cols[2].strip().lower() in ("sl",):
-            continue
-        parsed_rows.append(cols)
-
+if parsed_rows is not None:
     new_df = pd.DataFrame(parsed_rows, columns=["Mã SP", "Tên SP", "SL", "Giá bán"])
     st.session_state["invoice_df"] = new_df
 

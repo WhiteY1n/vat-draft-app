@@ -8,6 +8,7 @@ import pandas as pd
 import streamlit as st
 
 from src.auth import get_current_user
+from src.invoice_file_reader import parse_invoice_files
 from src.session import get_config, get_current_version_metadata, get_current_workbook
 from src.source_lookup import (
     SourceLookupInput,
@@ -46,19 +47,41 @@ if "source_lookup_df" not in st.session_state:
 
 render_section_header(
     "1. Nhập danh sách cần tra",
-    "Dán các cột cách nhau bằng phím Tab. Chỉ cần Mã SP hoặc Tên SP; SL và Giá bán là tùy chọn.",
+    "Dán các cột cách nhau bằng phím Tab, hoặc tải trực tiếp file hóa đơn (.xlsx). "
+    "Chỉ cần Mã SP hoặc Tên SP; SL và Giá bán là tùy chọn.",
 )
 with st.container(border=True):
-    pasted = st.text_area(
-        "Dán dữ liệu (các cột cách nhau bằng phím Tab)",
-        height=120,
-        key="source_lookup_paste_area",
-    )
-    col_read, col_clear, _ = render_action_bar([1, 1, 3])
-    with col_read:
-        lookup_clicked = st.button("🔎 Tra cứu nguồn", type="primary")
-    with col_clear:
-        clear_clicked = st.button("🗑️ Xóa toàn bộ", type="secondary")
+    tab_paste, tab_file = st.tabs(["📋 Dán dữ liệu", "📁 Tải file hóa đơn"])
+
+    with tab_paste:
+        pasted = st.text_area(
+            "Dán dữ liệu (các cột cách nhau bằng phím Tab)",
+            height=120,
+            key="source_lookup_paste_area",
+        )
+        col_read, col_clear, _ = render_action_bar([1, 1, 3])
+        with col_read:
+            lookup_clicked = st.button("🔎 Tra cứu nguồn", type="primary", key="paste-lookup-btn")
+        with col_clear:
+            clear_clicked = st.button("🗑️ Xóa toàn bộ", type="secondary", key="paste-clear-btn")
+
+    with tab_file:
+        st.caption(
+            "Chọn một hoặc nhiều file 'Chi tiết hóa đơn' (.xlsx) xuất từ phần mềm bán hàng. "
+            "Hệ thống tự nhận diện các cột Mã hàng, Tên hàng, Số lượng, Giá bán."
+        )
+        uploaded_invoice_files = st.file_uploader(
+            "Tải file hóa đơn (.xlsx)",
+            type=["xlsx"],
+            accept_multiple_files=True,
+            key="source_lookup_file_uploader",
+        )
+        file_lookup_clicked = st.button(
+            "🔎 Tra cứu từ file đã tải lên",
+            type="primary",
+            key="file-lookup-btn",
+            disabled=not uploaded_invoice_files,
+        )
 
 if clear_clicked:
     st.session_state["source_lookup_df"] = pd.DataFrame(
@@ -69,49 +92,65 @@ if clear_clicked:
 
 result = st.session_state.get("source_lookup_result")
 
+rows: list[list[str]] | None = None
+
 if lookup_clicked:
     result = None
     st.session_state.pop("source_lookup_result", None)
-    rows = []
+    parsed = []
     for line in pasted.splitlines():
         if not line.strip():
             continue
         cols = (line.split("\t") + ["", "", "", ""])[:4]
         if cols[0].strip().casefold() in {"mã sp", "ma sp", "mã kiot", "ma kiot"}:
             continue
-        rows.append(cols)
-    if rows:
-        lookup_df = pd.DataFrame(
-            rows, columns=["Mã SP", "Tên SP", "SL", "Giá bán"]
-        )
-        st.session_state["source_lookup_df"] = lookup_df
-
-        queries = []
-        for index, row in lookup_df.reset_index(drop=True).iterrows():
-            ma_sp = row.get("Mã SP", "")
-            ten_sp = row.get("Tên SP", "")
-            if not str(ma_sp).strip() and not str(ten_sp).strip():
-                continue
-            queries.append(
-                SourceLookupInput(
-                    order_index=index + 1,
-                    ma_sp=ma_sp,
-                    ten_sp=ten_sp,
-                    sl=row.get("SL", ""),
-                    gia_ban=row.get("Giá bán", ""),
-                )
-            )
-
-        if queries:
-            result = lookup_all_sources(
-                queries, workbook.mapping_rows, workbook.stock_rows, config=config
-            )
-            st.session_state["source_lookup_result"] = result
-        else:
-            st.warning("Hãy nhập ít nhất một Mã SP hoặc Tên SP.")
+        parsed.append(cols)
+    if parsed:
+        rows = parsed
     else:
         st.warning("Không đọc được dòng dữ liệu nào từ vùng dán.")
         st.session_state.pop("source_lookup_result", None)
+
+if file_lookup_clicked:
+    result = None
+    st.session_state.pop("source_lookup_result", None)
+    if not uploaded_invoice_files:
+        st.warning("Hãy chọn ít nhất một file hóa đơn (.xlsx).")
+    else:
+        files = [(f.getvalue(), f.name) for f in uploaded_invoice_files]
+        parsed_rows, parse_errors = parse_invoice_files(files)
+        for err in parse_errors:
+            st.warning(err)
+        if parsed_rows:
+            rows = parsed_rows
+
+if rows is not None:
+    lookup_df = pd.DataFrame(rows, columns=["Mã SP", "Tên SP", "SL", "Giá bán"])
+    st.session_state["source_lookup_df"] = lookup_df
+
+    queries = []
+    for index, row in lookup_df.reset_index(drop=True).iterrows():
+        ma_sp = row.get("Mã SP", "")
+        ten_sp = row.get("Tên SP", "")
+        if not str(ma_sp).strip() and not str(ten_sp).strip():
+            continue
+        queries.append(
+            SourceLookupInput(
+                order_index=index + 1,
+                ma_sp=ma_sp,
+                ten_sp=ten_sp,
+                sl=row.get("SL", ""),
+                gia_ban=row.get("Giá bán", ""),
+            )
+        )
+
+    if queries:
+        result = lookup_all_sources(
+            queries, workbook.mapping_rows, workbook.stock_rows, config=config
+        )
+        st.session_state["source_lookup_result"] = result
+    else:
+        st.warning("Hãy nhập ít nhất một Mã SP hoặc Tên SP.")
 
 if result is not None:
     render_section_header(
