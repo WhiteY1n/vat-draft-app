@@ -24,6 +24,10 @@ CHECK_RESULT_COLUMNS = [
     "Ghi chú hàng hóa",
 ]
 
+# Chỉ thêm vào bảng hiển thị khi dữ liệu đến từ tải file hóa đơn có sẵn hai cột
+# 'Mã hóa đơn' và 'Thành tiền'; luồng dán tay không có nên không hiện hai cột này.
+INVOICE_META_COLUMNS = ["Mã hóa đơn", "Thành tiền"]
+
 
 def build_result_lines(
     allocations: list[RowAllocation], config: AppConfig

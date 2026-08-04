@@ -19,6 +19,8 @@ HEADER_ALIASES: dict[str, set[str]] = {
     "so_luong": {"số lượng", "so luong", "sl"},
     "gia_ban": {"giá bán", "gia ban"},
     "ghi_chu": {"ghi chú hàng hóa", "ghi chu hang hoa"},
+    "ma_hoa_don": {"mã hóa đơn", "ma hoa don"},
+    "thanh_tien": {"thành tiền", "thanh tien"},
 }
 
 MAX_HEADER_SCAN_ROWS = 5
@@ -29,6 +31,7 @@ class InvoiceFileParseResult:
     file_name: str
     rows: list[list[str]] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    has_invoice_meta: bool = False
 
 
 def _find_header(ws) -> tuple[int | None, dict[str, int]]:
@@ -76,6 +79,8 @@ def parse_invoice_file_bytes(file_bytes: bytes, file_name: str) -> InvoiceFilePa
         )
         return result
 
+    result.has_invoice_meta = "ma_hoa_don" in col_map and "thanh_tien" in col_map
+
     for row in ws.iter_rows(min_row=header_row_idx + 1, values_only=True):
         if row is None:
             continue
@@ -102,6 +107,14 @@ def parse_invoice_file_bytes(file_bytes: bytes, file_name: str) -> InvoiceFilePa
         if "ghi_chu" in col_map and col_map["ghi_chu"] < len(row):
             ghi_chu = row[col_map["ghi_chu"]]
 
+        ma_hoa_don = None
+        if "ma_hoa_don" in col_map and col_map["ma_hoa_don"] < len(row):
+            ma_hoa_don = row[col_map["ma_hoa_don"]]
+
+        thanh_tien = None
+        if "thanh_tien" in col_map and col_map["thanh_tien"] < len(row):
+            thanh_tien = row[col_map["thanh_tien"]]
+
         result.rows.append(
             [
                 str(ma_hang).strip(),
@@ -109,6 +122,8 @@ def parse_invoice_file_bytes(file_bytes: bytes, file_name: str) -> InvoiceFilePa
                 "" if so_luong is None else str(so_luong).strip(),
                 "" if gia_ban is None else str(gia_ban).strip(),
                 "" if ghi_chu is None else str(ghi_chu).strip(),
+                "" if ma_hoa_don is None else str(ma_hoa_don).strip(),
+                "" if thanh_tien is None else str(thanh_tien).strip(),
             ]
         )
 
@@ -118,13 +133,25 @@ def parse_invoice_file_bytes(file_bytes: bytes, file_name: str) -> InvoiceFilePa
     return result
 
 
-def parse_invoice_files(files: list[tuple[bytes, str]]) -> tuple[list[list[str]], list[str]]:
-    """Đọc nhiều file hóa đơn, gộp toàn bộ dòng sản phẩm lại thành một danh sách."""
+def parse_invoice_files(
+    files: list[tuple[bytes, str]]
+) -> tuple[list[list[str]], list[str], bool]:
+    """Đọc nhiều file hóa đơn, gộp toàn bộ dòng sản phẩm lại thành một danh sách.
+
+    Phần tử thứ 3 trả về (``has_invoice_meta``) chỉ True khi TẤT CẢ file có đóng
+    góp dòng dữ liệu đều có sẵn cột 'Mã hóa đơn' và 'Thành tiền'; nếu trộn file
+    có/không có hai cột này thì tắt hẳn để tránh hiển thị dữ liệu nửa vời.
+    """
 
     all_rows: list[list[str]] = []
     all_errors: list[str] = []
+    has_invoice_meta = True
+    any_rows = False
     for file_bytes, file_name in files:
         parsed = parse_invoice_file_bytes(file_bytes, file_name)
         all_rows.extend(parsed.rows)
         all_errors.extend(parsed.errors)
-    return all_rows, all_errors
+        if parsed.rows:
+            any_rows = True
+            has_invoice_meta = has_invoice_meta and parsed.has_invoice_meta
+    return all_rows, all_errors, has_invoice_meta and any_rows

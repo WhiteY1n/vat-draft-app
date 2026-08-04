@@ -16,7 +16,7 @@ from src.invoice_allocation import (
     build_unavailable_display_rows,
 )
 from src.invoice_file_reader import parse_invoice_files
-from src.result_builder import CHECK_RESULT_COLUMNS
+from src.result_builder import CHECK_RESULT_COLUMNS, INVOICE_META_COLUMNS
 from src.session import get_config, get_current_version_metadata, load_workbook_from_sheets
 from src.source_lookup import SourceLookupInput
 from src.vietqr import (
@@ -142,6 +142,7 @@ if clear_clicked:
     st.session_state["invoice_df"] = pd.DataFrame(columns=["Mã SP", "Tên SP", "SL", "Giá bán", "Ghi chú hàng hóa"])
     st.session_state.pop("check_result", None)
     st.session_state.pop("invoice_codes", None)
+    st.session_state["invoice_has_meta"] = False
     _clear_vietqr_widget_state()
     st.rerun()
 
@@ -157,6 +158,7 @@ if read_and_check_clicked:
     result = None
     st.session_state.pop("check_result", None)
     st.session_state.pop("invoice_codes", None)
+    st.session_state["invoice_has_meta"] = False
     _clear_vietqr_widget_state()
     if not pasted_text.strip():
         st.warning("Hãy dán dữ liệu hóa đơn trước khi kiểm tra.")
@@ -180,15 +182,20 @@ if file_read_clicked:
         st.warning("Hãy chọn ít nhất một file hóa đơn (.xlsx).")
     else:
         files = [(f.getvalue(), f.name) for f in uploaded_invoice_files]
-        parsed_rows, parse_errors = parse_invoice_files(files)
+        parsed_rows, parse_errors, has_invoice_meta = parse_invoice_files(files)
         for err in parse_errors:
             st.warning(err)
+        st.session_state["invoice_has_meta"] = has_invoice_meta
         st.session_state["invoice_codes"] = extract_invoice_codes(
             [f.name for f in uploaded_invoice_files]
         )
 
 if parsed_rows is not None:
-    new_df = pd.DataFrame(parsed_rows, columns=["Mã SP", "Tên SP", "SL", "Giá bán", "Ghi chú hàng hóa"])
+    df_columns = ["Mã SP", "Tên SP", "SL", "Giá bán", "Ghi chú hàng hóa"]
+    row_width = len(parsed_rows[0]) if parsed_rows else len(df_columns)
+    if row_width >= 7:
+        df_columns = df_columns + ["Mã hóa đơn", "Thành tiền"]
+    new_df = pd.DataFrame(parsed_rows, columns=df_columns)
     st.session_state["invoice_df"] = new_df
 
     df = st.session_state["invoice_df"].reset_index(drop=True)
@@ -199,6 +206,8 @@ if parsed_rows is not None:
         sl = row.get("SL", "")
         gia_ban = row.get("Giá bán", "")
         ghi_chu = row.get("Ghi chú hàng hóa", "")
+        ma_hoa_don = row.get("Mã hóa đơn", "")
+        thanh_tien = row.get("Thành tiền", "")
         if str(ma_sp).strip() == "" and str(ten_sp).strip() == "":
             continue  # bỏ qua dòng trống hoàn toàn
         lookup_rows.append(
@@ -209,6 +218,8 @@ if parsed_rows is not None:
                 sl=sl,
                 gia_ban=gia_ban,
                 ghi_chu_hang_hoa=ghi_chu,
+                ma_hoa_don=ma_hoa_don,
+                thanh_tien=thanh_tien,
             )
         )
 
@@ -257,7 +268,10 @@ if result is not None:
                 "GIÁ NHÁP (Giá bán/(1+%VAT))": "GIÁ NHÁP\n(Giá bán/(1+%VAT))"
             }
         )
-        result_df = result_df[CHECK_RESULT_COLUMNS]
+        display_columns = CHECK_RESULT_COLUMNS.copy()
+        if st.session_state.get("invoice_has_meta", False):
+            display_columns = display_columns + INVOICE_META_COLUMNS
+        result_df = result_df[display_columns]
         with st.container(key="result-highlight"):
             st.dataframe(
                 result_df,
@@ -280,6 +294,8 @@ if result is not None:
                         width=130, format="%.0f"
                     ),
                     "Ghi chú hàng hóa": st.column_config.TextColumn(width=150),
+                    "Mã hóa đơn": st.column_config.TextColumn(width=90),
+                    "Thành tiền": st.column_config.NumberColumn(width=100, format="%,d"),
                 },
             )
 

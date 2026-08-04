@@ -23,6 +23,8 @@ class SourceLookupInput:
     sl: Any = ""
     gia_ban: Any = ""
     ghi_chu_hang_hoa: Any = ""
+    ma_hoa_don: Any = ""
+    thanh_tien: Any = ""
 
 
 @dataclass
