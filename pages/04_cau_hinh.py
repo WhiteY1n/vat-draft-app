@@ -104,6 +104,37 @@ with st.expander("Lưu trữ phiên bản"):
         "Người dùng khác không thể truy cập dữ liệu này."
     )
 
+with st.expander("Thanh toán QR (VietQR)"):
+    st.caption(
+        "Mỗi nguồn được gán một tài khoản ngân hàng để tạo mã QR ở trang Xử lý hóa đơn. "
+        "Sửa mapping trong `config/settings.yaml` (mục `vietqr`)."
+    )
+    if config.vietqr.source_account_map:
+        vietqr_rows = []
+        for source_name, account_key in config.vietqr.source_account_map.items():
+            account = config.vietqr.accounts.get(account_key)
+            vietqr_rows.append(
+                {
+                    "Nguồn": source_name,
+                    "Tài khoản": account_key,
+                    "Ngân hàng": account.bank_id if account else "—",
+                    "Số tài khoản": account.account_no if account else "—",
+                }
+            )
+        st.dataframe(
+            pd.DataFrame(vietqr_rows),
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Nguồn": st.column_config.TextColumn(width="medium"),
+                "Tài khoản": st.column_config.TextColumn(width="small"),
+                "Ngân hàng": st.column_config.TextColumn(width="small"),
+                "Số tài khoản": st.column_config.TextColumn(width="medium"),
+            },
+        )
+    else:
+        st.caption("Chưa cấu hình mapping nguồn → tài khoản.")
+
 with st.expander("Cấu hình kỹ thuật"):
     st.write(f"**Chế độ đăng nhập:** `{config.auth_mode}`")
     st.write("**Backend lưu trữ hiện tại:** SessionMemoryStorageAdapter")

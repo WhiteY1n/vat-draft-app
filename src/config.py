@@ -36,6 +36,23 @@ class NameMatchWeights:
 
 
 @dataclass
+class VietQrAccount:
+    """Một tài khoản ngân hàng dùng để tạo mã QR VietQR."""
+
+    key: str
+    bank_id: str = ""
+    account_no: str = ""
+    account_name: str = ""
+
+
+@dataclass
+class VietQrConfig:
+    template: str = "compact2"
+    accounts: dict[str, VietQrAccount] = field(default_factory=dict)
+    source_account_map: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
 class AppConfig:
     auth_mode: str = "none"
     allowed_emails: list[str] = field(default_factory=list)
@@ -48,6 +65,8 @@ class AppConfig:
     source_tiebreak_priority: list[str] = field(default_factory=list)
 
     name_match: NameMatchWeights = field(default_factory=NameMatchWeights)
+
+    vietqr: VietQrConfig = field(default_factory=VietQrConfig)
 
     # Google Sheets
     sheet_id: str = "1dNabQaiob7CMozrqjA746uV-atHWJi8gbG6L-I0yrmU"
@@ -88,6 +107,22 @@ def load_config(config_path: str | None = None) -> AppConfig:
         review_threshold=nm_raw.get("review_threshold", 55.0),
     )
 
+    vietqr_raw = raw.get("vietqr", {}) or {}
+    vietqr_accounts = {
+        account_key: VietQrAccount(
+            key=account_key,
+            bank_id=account_raw.get("bank_id", ""),
+            account_no=str(account_raw.get("account_no", "")),
+            account_name=account_raw.get("account_name", ""),
+        )
+        for account_key, account_raw in (vietqr_raw.get("accounts", {}) or {}).items()
+    }
+    vietqr = VietQrConfig(
+        template=vietqr_raw.get("template", "compact2"),
+        accounts=vietqr_accounts,
+        source_account_map=vietqr_raw.get("source_account_map", {}) or {},
+    )
+
     auth_mode = os.environ.get("AUTH_MODE", raw.get("auth_mode", "none"))
     allowed_emails_env = os.environ.get("ALLOWED_EMAILS")
     admin_emails_env = os.environ.get("ADMIN_EMAILS")
@@ -112,6 +147,7 @@ def load_config(config_path: str | None = None) -> AppConfig:
         allow_fractional_sl=raw.get("allow_fractional_sl", False),
         source_tiebreak_priority=raw.get("source_tiebreak_priority", []),
         name_match=name_match,
+        vietqr=vietqr,
         sheet_id=os.environ.get(
             "SHEET_ID", raw.get("sheet_id", "1dNabQaiob7CMozrqjA746uV-atHWJi8gbG6L-I0yrmU")
         ),

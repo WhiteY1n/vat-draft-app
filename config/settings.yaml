@@ -43,3 +43,32 @@ sheet_id: "1dNabQaiob7CMozrqjA746uV-atHWJi8gbG6L-I0yrmU"
 gid_gop_vat: 0
 gid_khop_ma: 1192158065
 
+# VietQR — tạo mã QR thanh toán cho hóa đơn (dùng Quick Link API, không cần API key).
+# template: kiểu ảnh QR do VietQR cung cấp (compact2 | compact | qr_only | print).
+vietqr:
+  template: "compact2"
+  accounts:
+    duy:
+      bank_id: "MSB"          # mã ngân hàng VietQR (MSB - Hàng Hải)
+      account_no: "80002808041"
+      account_name: "NGUYEN NGOC DUY"
+    nguyet:
+      bank_id: "SHB"          # mã ngân hàng VietQR (SHB - Sài Gòn Hà Nội)
+      account_no: "181833666"
+      account_name: "DANG THI ANH NGUYET"
+    quan:
+      bank_id: "MSB"
+      account_no: "80002809285"
+      account_name: "NGUYEN VAN QUAN"
+
+  # Mapping nguồn -> tài khoản (key trong "accounts" ở trên). Dùng làm lựa chọn
+  # mặc định cho từng nguồn ở chế độ "Hóa đơn có VAT"; người dùng vẫn có thể đổi
+  # tài khoản khác ngay trên giao diện trước khi tạo QR. Tên nguồn phải khớp đúng
+  # giá trị cột NGUỒN trong sheet "Gộp VAT" (LUCKY, SHC, TKS THẤP, TKSCAO, VC).
+  source_account_map:
+    "LUCKY": duy
+    "SHC": nguyet
+    "TKS THẤP": quan
+    "TKSCAO": duy
+    "VC": nguyet
+
