@@ -204,7 +204,7 @@ def test_shortage_when_total_stock_is_not_enough():
     assert len(result.shortages) == 1
     shortage = result.shortages[0]
     assert (shortage.sl_yeu_cau, shortage.tong_ton, shortage.thieu) == (200, 170, 30)
-    assert shortage.ghi_chu == "Không đủ số lượng tồn — thiếu 30"
+    assert shortage.ghi_chu == "Không đủ số lượng tồn"
 
 
 # 7. Mã hàng không tồn tại ---------------------------------------------------
@@ -472,8 +472,11 @@ def test_shortage_display_rows():
     result = _run([SourceLookupInput(1, ma_sp="SP01", sl=25)], _mappings(), stocks)
     rows = build_shortage_display_rows(result.shortages)
 
-    assert rows[0]["Còn thiếu"] == 15
-    assert rows[0]["Ghi chú"] == "Không đủ số lượng tồn — thiếu 15"
+    assert rows[0]["MÃ SP"] == "SP01"
+    assert rows[0]["SL"] == 25
+    assert rows[0]["TỒN CÒN NHÁP"] == 10
+    assert rows[0]["NGUỒN"] == "MAY"
+    assert rows[0]["Ghi chú"] == "Không đủ số lượng tồn"
 
 
 def test_unavailable_rows_explain_presence_in_each_sheet():

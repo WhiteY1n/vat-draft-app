@@ -64,7 +64,20 @@ class InvoiceShortage:
     sl_yeu_cau: float
     tong_ton: float
     thieu: float
-    ghi_chu: str
+    gia_ban: Any
+    ma_vat: str
+    ten_vat: str
+    ma_ke_toan: str
+    ten_ke_toan: str
+    dvt: str
+    nguon: str
+    ton_con_nhap: float
+    phan_tram_vat: float | None
+    gia_nhap: float | None
+    ghi_chu_hang_hoa: str = ""
+    ma_hoa_don: str = ""
+    thanh_tien: Any = None
+    ghi_chu: str = "Không đủ số lượng tồn"
 
 
 @dataclass
@@ -155,6 +168,15 @@ def _allocate_one_product(
 
     if need > total_ton + TOLERANCE:
         thieu = need - total_ton
+        best = sorted(item.candidates, key=lambda c: (-c.score, c.stock.row_index))[0]
+        nguon_list = sorted({c.stock.nguon for c in usable}) or sorted(
+            {c.stock.nguon for c in item.candidates}
+        )
+        gia_ban = to_float_or_none(item.query.gia_ban)
+        phan_tram_vat = best.stock.thue_vat
+        gia_nhap = None
+        if gia_ban is not None and phan_tram_vat is not None and (1 + phan_tram_vat) != 0:
+            gia_nhap = round(gia_ban / (1 + phan_tram_vat), config.gia_nhap_decimal_places)
         result.shortages.append(
             InvoiceShortage(
                 query_order=item.query.order_index,
@@ -163,7 +185,21 @@ def _allocate_one_product(
                 sl_yeu_cau=need,
                 tong_ton=total_ton,
                 thieu=thieu,
-                ghi_chu=f"Không đủ số lượng tồn — thiếu {_format_qty(thieu)}",
+                gia_ban=item.query.gia_ban,
+                ma_vat=item.mapping.ma_vat_kiot,
+                ten_vat=item.mapping.ten_truoc_vat or best.stock.ten_vat_kiot,
+                ma_ke_toan=best.stock.ma_ke_toan,
+                ten_ke_toan=best.stock.ten_ke_toan,
+                dvt=best.stock.don_vi_tinh,
+                nguon=", ".join(nguon_list),
+                ton_con_nhap=total_ton,
+                phan_tram_vat=phan_tram_vat,
+                gia_nhap=gia_nhap,
+                ghi_chu_hang_hoa=str(item.query.ghi_chu_hang_hoa).strip()
+                if item.query.ghi_chu_hang_hoa
+                else "",
+                ma_hoa_don=str(item.query.ma_hoa_don).strip() if item.query.ma_hoa_don else "",
+                thanh_tien=to_float_or_none(item.query.thanh_tien),
             )
         )
         return
@@ -522,16 +558,26 @@ def build_allocation_display_rows(lines: list[InvoiceAllocationLine]) -> list[di
 
 
 def build_shortage_display_rows(shortages: list[InvoiceShortage]) -> list[dict[str, Any]]:
-    """Bảng sản phẩm không hợp lệ, hiển thị riêng phía dưới kết quả hợp lệ."""
+    """Bảng sản phẩm không đủ tồn, giữ đúng bộ cột như bảng kết quả thỏa mãn."""
 
     return [
         {
-            "Dòng nhập": shortage.query_order,
             "MÃ SP": shortage.ma_sp,
             "TÊN SP": shortage.ten_sp,
-            "SL yêu cầu": shortage.sl_yeu_cau,
-            "Tổng tồn hiện có": shortage.tong_ton,
-            "Còn thiếu": shortage.thieu,
+            "SL": shortage.sl_yeu_cau,
+            "Giá bán": to_float_or_none(shortage.gia_ban),
+            "Mã VAT": shortage.ma_vat,
+            "TÊN VAT": shortage.ten_vat,
+            "MÃ KT": shortage.ma_ke_toan,
+            "TÊN KẾ TOÁN": shortage.ten_ke_toan,
+            "ĐVT": shortage.dvt,
+            "NGUỒN": shortage.nguon,
+            "TỒN CÒN NHÁP": shortage.ton_con_nhap,
+            "%VAT": shortage.phan_tram_vat * 100 if shortage.phan_tram_vat is not None else None,
+            "GIÁ NHÁP\n(Giá bán/(1+%VAT))": shortage.gia_nhap,
+            "Ghi chú hàng hóa": shortage.ghi_chu_hang_hoa,
+            "Mã hóa đơn": shortage.ma_hoa_don,
+            "Thành tiền": shortage.thanh_tien,
             "Ghi chú": shortage.ghi_chu,
         }
         for shortage in shortages

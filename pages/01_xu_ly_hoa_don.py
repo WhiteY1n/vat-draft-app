@@ -353,17 +353,28 @@ if result is not None:
         st.warning(f"Có {len(result.shortages)} sản phẩm không đủ số lượng tồn.")
         shortage_df = pd.DataFrame(build_shortage_display_rows(result.shortages))
         st.dataframe(
-            shortage_df,
+            shortage_df.style.map(lambda _: "color: #d32f2f;", subset=["Ghi chú"]),
             width="stretch",
             hide_index=True,
             column_config={
-                "Dòng nhập": st.column_config.NumberColumn(width="small", format="%d"),
-                "MÃ SP": st.column_config.TextColumn(width=80),
-                "TÊN SP": st.column_config.TextColumn(width="large"),
-                "SL yêu cầu": st.column_config.NumberColumn(width=90, format="%.0f"),
-                "Tổng tồn hiện có": st.column_config.NumberColumn(width=120, format="%.0f"),
-                "Còn thiếu": st.column_config.NumberColumn(width=90, format="%.0f"),
-                "Ghi chú": st.column_config.TextColumn(width="large"),
+                "MÃ SP": st.column_config.TextColumn(width=68),
+                "TÊN SP": st.column_config.TextColumn(width=175),
+                "SL": st.column_config.NumberColumn(width=48, format="%.0f"),
+                "Giá bán": st.column_config.NumberColumn(width=62, format="%.0f"),
+                "Mã VAT": st.column_config.TextColumn(width=70),
+                "TÊN VAT": st.column_config.TextColumn(width=175),
+                "TÊN KẾ TOÁN": st.column_config.TextColumn(width=165),
+                "ĐVT": st.column_config.TextColumn(width=46),
+                "NGUỒN": st.column_config.TextColumn(width=90),
+                "TỒN CÒN NHÁP": st.column_config.NumberColumn(width=68, format="%.0f"),
+                "%VAT": st.column_config.NumberColumn(width=46, format="%.0f%%"),
+                "GIÁ NHÁP\n(Giá bán/(1+%VAT))": st.column_config.NumberColumn(
+                    width=130, format="%.0f"
+                ),
+                "Ghi chú hàng hóa": st.column_config.TextColumn(width=150),
+                "Mã hóa đơn": st.column_config.TextColumn(width=90),
+                "Thành tiền": st.column_config.NumberColumn(width=100, format="%,d"),
+                "Ghi chú": st.column_config.TextColumn(width=150),
             },
         )
     else:
