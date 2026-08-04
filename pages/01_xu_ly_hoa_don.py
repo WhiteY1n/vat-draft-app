@@ -16,7 +16,7 @@ from src.invoice_allocation import (
     build_unavailable_display_rows,
 )
 from src.invoice_file_reader import parse_invoice_files
-from src.result_builder import CHECK_RESULT_COLUMNS, INVOICE_META_COLUMNS
+from src.result_builder import build_display_columns
 from src.session import get_config, get_current_version_metadata, load_workbook_from_sheets
 from src.source_lookup import SourceLookupInput
 from src.vietqr import (
@@ -268,10 +268,45 @@ if result is not None:
                 "GIÁ NHÁP (Giá bán/(1+%VAT))": "GIÁ NHÁP\n(Giá bán/(1+%VAT))"
             }
         )
-        display_columns = CHECK_RESULT_COLUMNS.copy()
-        if st.session_state.get("invoice_has_meta", False):
-            display_columns = display_columns + INVOICE_META_COLUMNS
+        display_columns = build_display_columns(st.session_state.get("invoice_has_meta", False))
         result_df = result_df[display_columns]
+
+        NO_SORT = "(Không sắp xếp)"
+        sort_option_columns = [NO_SORT] + display_columns
+        sort_row = st.columns([2, 1.2, 2, 1.2], gap="small")
+        with sort_row[0]:
+            primary_sort_col = st.selectbox(
+                "Sắp xếp chính theo cột", sort_option_columns, key="result_sort_primary_col"
+            )
+        with sort_row[1]:
+            primary_sort_dir = st.selectbox(
+                "Thứ tự", ["Tăng dần", "Giảm dần"], key="result_sort_primary_dir"
+            )
+        with sort_row[2]:
+            secondary_sort_col = st.selectbox(
+                "Sau đó theo cột", sort_option_columns, key="result_sort_secondary_col"
+            )
+        with sort_row[3]:
+            secondary_sort_dir = st.selectbox(
+                "Thứ tự", ["Tăng dần", "Giảm dần"], key="result_sort_secondary_dir"
+            )
+
+        sort_by: list[str] = []
+        ascending: list[bool] = []
+        if primary_sort_col != NO_SORT:
+            sort_by.append(primary_sort_col)
+            ascending.append(primary_sort_dir == "Tăng dần")
+            if secondary_sort_col != NO_SORT and secondary_sort_col != primary_sort_col:
+                sort_by.append(secondary_sort_col)
+                ascending.append(secondary_sort_dir == "Tăng dần")
+        elif secondary_sort_col != NO_SORT:
+            st.caption("⚠️ Chọn cột sắp xếp chính trước khi chọn cột sắp xếp phụ.")
+
+        if sort_by:
+            result_df = result_df.sort_values(
+                by=sort_by, ascending=ascending, kind="stable"
+            ).reset_index(drop=True)
+
         with st.container(key="result-highlight"):
             st.dataframe(
                 result_df,

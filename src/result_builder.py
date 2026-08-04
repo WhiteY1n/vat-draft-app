@@ -10,23 +10,39 @@ from src.models import AllocationResultLine
 CHECK_RESULT_COLUMNS = [
     "MÃ SP",
     "TÊN SP",
-    "SL",
-    "Giá bán",
     "Mã VAT",
     "TÊN VAT",
+    "Ghi chú hàng hóa",
+    "NGUỒN",
+    "TỒN CÒN NHÁP",
+    "Giá bán",
     "MÃ KT",
     "TÊN KẾ TOÁN",
     "ĐVT",
-    "NGUỒN",
-    "TỒN CÒN NHÁP",
-    "%VAT",
+    "SL",
     "GIÁ NHÁP\n(Giá bán/(1+%VAT))",
-    "Ghi chú hàng hóa",
+    "%VAT",
 ]
 
 # Chỉ thêm vào bảng hiển thị khi dữ liệu đến từ tải file hóa đơn có sẵn hai cột
 # 'Mã hóa đơn' và 'Thành tiền'; luồng dán tay không có nên không hiện hai cột này.
 INVOICE_META_COLUMNS = ["Mã hóa đơn", "Thành tiền"]
+
+
+def build_display_columns(has_invoice_meta: bool) -> list[str]:
+    """Trả đúng thứ tự cột nghiệp vụ cho bảng "Sản phẩm thỏa mãn".
+
+    'Mã hóa đơn' chèn ngay sau 'TÊN VAT' và 'Thành tiền' luôn ở cuối bảng;
+    cả hai chỉ xuất hiện khi ``has_invoice_meta`` True.
+    """
+
+    columns = CHECK_RESULT_COLUMNS.copy()
+    if not has_invoice_meta:
+        return columns
+    insert_idx = columns.index("TÊN VAT") + 1
+    columns = columns[:insert_idx] + ["Mã hóa đơn"] + columns[insert_idx:]
+    columns.append("Thành tiền")
+    return columns
 
 
 def build_result_lines(
