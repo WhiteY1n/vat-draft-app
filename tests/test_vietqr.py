@@ -8,8 +8,26 @@ from src.vietqr import (
     compute_total_amount,
     extract_invoice_code,
     extract_invoice_codes,
+    format_amount_input,
     get_account_for_source,
+    parse_amount_input,
 )
+
+
+def test_format_amount_input_adds_thousand_separators_and_suffix():
+    assert format_amount_input(37037) == "37,037 đ"
+    assert format_amount_input(0) == "0 đ"
+
+
+def test_parse_amount_input_strips_formatting():
+    assert parse_amount_input("37,037 đ") == 37037
+    assert parse_amount_input("99000") == 99000
+    assert parse_amount_input("") == 0
+    assert parse_amount_input("   ") == 0
+
+
+def test_format_then_parse_amount_input_roundtrips():
+    assert parse_amount_input(format_amount_input(1500000)) == 1500000
 
 
 def _line(nguon, gia_ban, gia_nhap, sl_phan_bo=1):

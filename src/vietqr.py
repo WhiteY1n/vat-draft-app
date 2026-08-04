@@ -100,6 +100,19 @@ def compute_total_amount(lines: list[InvoiceAllocationLine]) -> SourceAmount:
     return total
 
 
+def format_amount_input(value: int) -> str:
+    """Định dạng số tiền có dấu phẩy phân tách hàng nghìn và hậu tố 'đ' để dễ đọc khi điền."""
+
+    return f"{max(int(value), 0):,} đ"
+
+
+def parse_amount_input(text: str) -> int:
+    """Đọc lại số tiền từ chuỗi đã định dạng (bỏ dấu phẩy/chấm, hậu tố 'đ', khoảng trắng)."""
+
+    digits = re.sub(r"[^\d]", "", text or "")
+    return int(digits) if digits else 0
+
+
 def build_vietqr_image_url(
     account: VietQrAccount,
     *,

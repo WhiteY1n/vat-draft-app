@@ -48,27 +48,31 @@ gid_khop_ma: 1192158065
 vietqr:
   template: "compact2"
   accounts:
-    duy:
+    tks_group:
+      bank_id: "MB"           # mã ngân hàng VietQR (MB Bank)
+      account_no: "606266688888"
+      account_name: "CONG TY CO PHAN THUONG MAI XUAT NHAP KHAU TKS GROUP"
+    vc_express:
       bank_id: "MSB"          # mã ngân hàng VietQR (MSB - Hàng Hải)
-      account_no: "80002808041"
-      account_name: "NGUYEN NGOC DUY"
-    nguyet:
-      bank_id: "SHB"          # mã ngân hàng VietQR (SHB - Sài Gòn Hà Nội)
-      account_no: "181833666"
-      account_name: "DANG THI ANH NGUYET"
-    quan:
-      bank_id: "MSB"
-      account_no: "80002809285"
-      account_name: "NGUYEN VAN QUAN"
+      account_no: "464848"
+      account_name: "CONG TY CO PHAN THUONG MAI VC EXPRESS"
+    lucky_house:
+      bank_id: "MB"           # mã ngân hàng VietQR (MBBank)
+      account_no: "898896886"
+      account_name: "CONG TY CO PHAN XUAT NHAP KHAU THUONG MAI LUCKY HOUSE"
+    shc:
+      bank_id: "MB"           # mã ngân hàng VietQR (MBbank - CN Đống Đa)
+      account_no: "525345345"
+      account_name: "CONG TY SHC"
 
   # Mapping nguồn -> tài khoản (key trong "accounts" ở trên). Dùng làm lựa chọn
   # mặc định cho từng nguồn ở chế độ "Hóa đơn có VAT"; người dùng vẫn có thể đổi
   # tài khoản khác ngay trên giao diện trước khi tạo QR. Tên nguồn phải khớp đúng
   # giá trị cột NGUỒN trong sheet "Gộp VAT" (LUCKY, SHC, TKS THẤP, TKSCAO, VC).
   source_account_map:
-    "LUCKY": duy
-    "SHC": nguyet
-    "TKS THẤP": quan
-    "TKSCAO": duy
-    "VC": nguyet
+    "LUCKY": lucky_house
+    "SHC": shc
+    "TKS THẤP": tks_group
+    "TKSCAO": tks_group
+    "VC": vc_express
 

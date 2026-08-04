@@ -24,7 +24,9 @@ from src.vietqr import (
     compute_source_amounts,
     compute_total_amount,
     extract_invoice_codes,
+    format_amount_input,
     get_account_for_source,
+    parse_amount_input,
 )
 from ui import (
     apply_global_styles,
@@ -125,10 +127,22 @@ with st.container(border=True):
             disabled=not uploaded_invoice_files,
         )
 
+def _clear_vietqr_widget_state() -> None:
+    """Xóa các giá trị QR (số tiền/tài khoản đã chọn) của kết quả cũ để tránh hiển thị lệch."""
+
+    for key in [
+        k
+        for k in st.session_state
+        if k.startswith(("vietqr_amount_", "vietqr_account_", "vietqr_total_account"))
+    ]:
+        st.session_state.pop(key, None)
+
+
 if clear_clicked:
     st.session_state["invoice_df"] = pd.DataFrame(columns=["Mã SP", "Tên SP", "SL", "Giá bán", "Ghi chú hàng hóa"])
     st.session_state.pop("check_result", None)
     st.session_state.pop("invoice_codes", None)
+    _clear_vietqr_widget_state()
     st.rerun()
 
 result = st.session_state.get("check_result")
@@ -143,6 +157,7 @@ if read_and_check_clicked:
     result = None
     st.session_state.pop("check_result", None)
     st.session_state.pop("invoice_codes", None)
+    _clear_vietqr_widget_state()
     if not pasted_text.strip():
         st.warning("Hãy dán dữ liệu hóa đơn trước khi kiểm tra.")
     else:
@@ -160,6 +175,7 @@ if file_read_clicked:
     result = None
     st.session_state.pop("check_result", None)
     st.session_state.pop("invoice_codes", None)
+    _clear_vietqr_widget_state()
     if not uploaded_invoice_files:
         st.warning("Hãy chọn ít nhất một file hóa đơn (.xlsx).")
     else:
@@ -384,6 +400,20 @@ if result is not None:
                 label = f"{acc.bank_id} - {acc.account_no}"
                 return f"{label} ({acc.account_name})" if acc.account_name else label
 
+            def _reformat_amount(key: str) -> None:
+                st.session_state[key] = format_amount_input(parse_amount_input(st.session_state[key]))
+
+            def _amount_input(key: str, default_value: float) -> int:
+                if key not in st.session_state:
+                    st.session_state[key] = format_amount_input(int(round(default_value)))
+                st.text_input(
+                    "Số tiền",
+                    key=key,
+                    on_change=_reformat_amount,
+                    args=(key,),
+                )
+                return parse_amount_input(st.session_state[key])
+
             if invoice_mode == "co_vat":
                 st.caption(
                     "Mỗi nguồn dùng một mã QR riêng, số tiền tính theo Giá nhập (trước VAT). "
@@ -413,17 +443,20 @@ if result is not None:
                             key=f"vietqr_account_{nguon}",
                         )
                         account = config.vietqr.accounts[selected_account_key]
+                        qr_amount = _amount_input(
+                            f"vietqr_amount_co_vat_{nguon}", amount.tong_gia_nhap
+                        )
                         if st.button(
-                            f"🔲 Tạo mã QR — {amount.tong_gia_nhap:,.0f}đ",
+                            f"🔲 Tạo mã QR — {qr_amount:,.0f}đ",
                             key=f"vietqr-co-vat-{nguon}",
                         ):
                             url = build_vietqr_image_url(
                                 account,
-                                amount=amount.tong_gia_nhap,
+                                amount=qr_amount,
                                 add_info=transfer_content.strip(),
                                 template=config.vietqr.template,
                             )
-                            st.image(url, caption=f"{nguon} — {amount.tong_gia_nhap:,.0f}đ")
+                            st.image(url, caption=f"{nguon} — {qr_amount:,.0f}đ")
             else:
                 st.caption(
                     "Gộp toàn bộ các nguồn thành 1 QR duy nhất, số tiền tính theo Giá bán (đã gồm VAT)."
@@ -442,14 +475,17 @@ if result is not None:
                         key="vietqr_total_account",
                     )
                     account = config.vietqr.accounts[selected_account_key]
+                    qr_amount = _amount_input(
+                        "vietqr_amount_khong_vat_total", total_amount.tong_gia_ban
+                    )
                     if st.button(
-                        f"🔲 Tạo mã QR — {total_amount.tong_gia_ban:,.0f}đ",
+                        f"🔲 Tạo mã QR — {qr_amount:,.0f}đ",
                         key="vietqr-khong-vat-total",
                     ):
                         url = build_vietqr_image_url(
                             account,
-                            amount=total_amount.tong_gia_ban,
+                            amount=qr_amount,
                             add_info=transfer_content.strip(),
                             template=config.vietqr.template,
                         )
-                        st.image(url, caption=f"Tất cả nguồn — {total_amount.tong_gia_ban:,.0f}đ")
+                        st.image(url, caption=f"Tất cả nguồn — {qr_amount:,.0f}đ")
