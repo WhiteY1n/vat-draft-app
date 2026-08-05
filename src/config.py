@@ -43,6 +43,7 @@ class VietQrAccount:
     bank_id: str = ""
     account_no: str = ""
     account_name: str = ""
+    label: str = ""
 
 
 @dataclass
@@ -114,6 +115,7 @@ def load_config(config_path: str | None = None) -> AppConfig:
             bank_id=account_raw.get("bank_id", ""),
             account_no=str(account_raw.get("account_no", "")),
             account_name=account_raw.get("account_name", ""),
+            label=account_raw.get("label", ""),
         )
         for account_key, account_raw in (vietqr_raw.get("accounts", {}) or {}).items()
     }

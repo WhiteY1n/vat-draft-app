@@ -48,22 +48,98 @@ gid_khop_ma: 1192158065
 vietqr:
   template: "compact2"
   accounts:
+    # --- Tài khoản công ty (5) ---
     tks_group:
+      label: "MB TKS"
       bank_id: "MB"           # mã ngân hàng VietQR (MB Bank)
       account_no: "606266688888"
       account_name: "CONG TY CO PHAN THUONG MAI XUAT NHAP KHAU TKS GROUP"
     vc_express:
+      label: "MSB VC"
       bank_id: "MSB"          # mã ngân hàng VietQR (MSB - Hàng Hải)
       account_no: "464848"
       account_name: "CONG TY CO PHAN THUONG MAI VC EXPRESS"
+    mb_vc_ex:
+      label: "MB VC EX"
+      bank_id: "MB"           # mã ngân hàng VietQR (MBBank)
+      account_no: "686345345"
+      account_name: "CONG TY CO PHAN THUONG MAI VC EXPRESS"
     lucky_house:
+      label: "MB LUCKY HOUSE"
       bank_id: "MB"           # mã ngân hàng VietQR (MBBank)
       account_no: "898896886"
       account_name: "CONG TY CO PHAN XUAT NHAP KHAU THUONG MAI LUCKY HOUSE"
     shc:
+      label: "MB SHC"
       bank_id: "MB"           # mã ngân hàng VietQR (MBbank - CN Đống Đa)
       account_no: "525345345"
       account_name: "CONG TY SHC"
+
+    # --- Tài khoản cá nhân — nhóm Anh Duy (5) ---
+    tp_a_duy:
+      label: "TP A DUY"
+      bank_id: "TPB"          # mã ngân hàng VietQR (TPBank)
+      account_no: "00001066788"
+      account_name: "NGUYEN NGOC DUY"
+    vib_a_duy:
+      label: "VIB A DUY"
+      bank_id: "VIB"          # mã ngân hàng VietQR (VIB)
+      account_no: "087564570"
+      account_name: "NGUYEN NGOC DUY"
+    shb_a_duy:
+      label: "SHB A DUY"
+      bank_id: "SHB"          # mã ngân hàng VietQR (SHB)
+      account_no: "1026044272"
+      account_name: "NGUYEN NGOC DUY"
+    vp_a_duy:
+      label: "VP A DUY (M)"
+      bank_id: "VPB"          # mã ngân hàng VietQR (VPBank)
+      account_no: "8040890"
+      account_name: "NGUYEN NGOC DUY"
+    msb_a_duy:
+      label: "MSB A DUY"
+      bank_id: "MSB"          # mã ngân hàng VietQR (MSB)
+      account_no: "80002808041"
+      account_name: "NGUYEN NGOC DUY"
+
+    # --- Tài khoản cá nhân — nhóm Anh Quân (3) ---
+    tp_a_quan:
+      label: "TP A QUÂN"
+      bank_id: "TPB"          # mã ngân hàng VietQR (TPBank)
+      account_no: "10003099363"
+      account_name: "NGUYEN VAN QUAN"
+    acb_a_quan:
+      label: "ACB A QUÂN"
+      bank_id: "ACB"          # mã ngân hàng VietQR (ACB)
+      account_no: "48206877"
+      account_name: "NGUYEN VAN QUAN"
+    msb_a_quan:
+      label: "MSB A QUÂN"
+      bank_id: "MSB"          # mã ngân hàng VietQR (MSB)
+      account_no: "80002809285"
+      account_name: "NGUYEN VAN QUAN"
+
+    # --- Tài khoản cá nhân — nhóm Chị Nguyệt (4) ---
+    acb_c_nguyet:
+      label: "ACB C NGUYỆT (M)"
+      bank_id: "ACB"          # mã ngân hàng VietQR (ACB)
+      account_no: "52256368"
+      account_name: "DANG THI ANH NGUYET"
+    vp_c_nguyet:
+      label: "VP C NGUYỆT (M)"
+      bank_id: "VPB"          # mã ngân hàng VietQR (VPBank)
+      account_no: "3090345688"
+      account_name: "DANG THI ANH NGUYET"
+    ocb_c_nguyet:
+      label: "OCB C NGUYỆT"
+      bank_id: "OCB"          # mã ngân hàng VietQR (OCB)
+      account_no: "0034100123456688"
+      account_name: "DANG THI ANH NGUYET"
+    shb_c_nguyet:
+      label: "SHB C NGUYỆT (M)"
+      bank_id: "SHB"          # mã ngân hàng VietQR (SHB)
+      account_no: "181833666"
+      account_name: "DANG THI ANH NGUYET"
 
   # Mapping nguồn -> tài khoản (key trong "accounts" ở trên). Dùng làm lựa chọn
   # mặc định cho từng nguồn ở chế độ "Hóa đơn có VAT"; người dùng vẫn có thể đổi

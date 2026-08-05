@@ -30,7 +30,8 @@ if not account_keys:
 
 def _format_account(key: str) -> str:
     acc = config.vietqr.accounts[key]
-    label = f"{acc.bank_id} - {acc.account_no}"
+    base = acc.label or f"{acc.bank_id} - {acc.account_no}"
+    label = f"{base} — {acc.bank_id} {acc.account_no}" if acc.label else base
     return f"{label} ({acc.account_name})" if acc.account_name else label
 
 
