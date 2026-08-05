@@ -7,7 +7,7 @@ from ui.components import (
     render_metric_card,
     render_section_header,
 )
-from ui.layout import render_admin_top_bar, render_feature_top_bar
+from ui.layout import render_admin_top_bar, render_feature_top_bar, render_sidebar_nav
 from ui.theme import apply_global_styles
 
 __all__ = [
@@ -19,4 +19,5 @@ __all__ = [
     "render_feature_top_bar",
     "render_metric_card",
     "render_section_header",
+    "render_sidebar_nav",
 ]

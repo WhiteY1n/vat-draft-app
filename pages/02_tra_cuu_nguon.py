@@ -23,7 +23,7 @@ from ui import (
 )
 
 st.set_page_config(
-    page_title="Tra cứu nguồn", page_icon="🔎", layout="wide", initial_sidebar_state="collapsed"
+    page_title="Tra cứu nguồn", page_icon="🔎", layout="wide", initial_sidebar_state="expanded"
 )
 apply_global_styles()
 

@@ -1,7 +1,8 @@
 """Bố cục và điều hướng dùng chung giữa các trang.
 
-Không dùng sidebar để tối đa chiều ngang hiển thị kết quả (giống xem trên
-Excel). Điều hướng và trạng thái dữ liệu gói gọn trong một thanh trên cùng.
+Điều hướng chính giữa các chức năng (Xử lý hóa đơn / Tra cứu nguồn / Tạo QR)
+nằm trong sidebar bên trái; thanh trên cùng chỉ còn tiêu đề + trạng thái dữ
+liệu + lối tắt quản trị.
 """
 
 from __future__ import annotations
@@ -12,12 +13,26 @@ import streamlit as st
 FEATURE_PAGES: dict[str, tuple[str, str, str]] = {
     "xu_ly_hoa_don": ("pages/01_xu_ly_hoa_don.py", "Xử lý hóa đơn", "🧾"),
     "tra_cuu_nguon": ("pages/02_tra_cuu_nguon.py", "Tra cứu nguồn", "🔎"),
+    "tao_qr": ("pages/05_tao_qr.py", "Tạo QR", "💳"),
 }
 
 ADMIN_PAGES: list[tuple[str, str, str]] = [
     ("pages/03_kiem_tra_du_lieu.py", "Kiểm tra dữ liệu", "✅"),
     ("pages/04_cau_hinh.py", "Cấu hình", "⚙️"),
 ]
+
+
+def render_sidebar_nav() -> None:
+    """Sidebar điều hướng chính, dùng chung cho mọi trang.
+
+    Streamlit tự làm nổi bật (bold) trang hiện tại trong ``st.page_link``,
+    nên không cần truyền tham số ``active``.
+    """
+
+    with st.sidebar:
+        st.markdown("### 🧾 Nháp VAT")
+        for _key, (page, label, icon) in FEATURE_PAGES.items():
+            st.page_link(page, label=label, icon=icon)
 
 
 def _render_admin_popover(*, key: str) -> None:
@@ -34,22 +49,17 @@ def render_feature_top_bar(
     config,
     user,
 ) -> bool:
-    """Thanh trên cùng cho 2 trang chính. Trả về True nếu người dùng bấm nút Cập nhật."""
+    """Thanh trên cùng cho các trang chính. Trả về True nếu người dùng bấm nút Cập nhật."""
+
+    render_sidebar_nav()
 
     _page, title, icon = FEATURE_PAGES[active]
-    other_key = "tra_cuu_nguon" if active == "xu_ly_hoa_don" else "xu_ly_hoa_don"
-    other_page, other_title, other_icon = FEATURE_PAGES[other_key]
 
     timestamp = st.session_state.get("sheets_timestamp")
 
-    title_col, switch_col, status_col, admin_col = st.columns(
-        [2.5, 2.0, 4.5, 0.5], gap="small"
-    )
+    title_col, status_col, admin_col = st.columns([3.0, 6.0, 0.5], gap="small")
     with title_col:
         st.markdown(f"## {icon} {title}")
-    with switch_col:
-        with st.container(key=f"switch-to-{other_key}"):
-            st.page_link(other_page, label=f"Chuyển sang {other_title}", icon=other_icon)
     with status_col:
         # Status text + nút refresh cùng 1 hàng trong status_col
         txt_col, btn_col = st.columns([1, 0.13], gap="small")
@@ -90,9 +100,9 @@ def render_admin_top_bar(
 ) -> None:
     """Thanh trên cùng gọn cho các trang quản trị (Kiểm tra dữ liệu, Cấu hình)."""
 
-    back_col, title_col, nav_col = st.columns([1.3, 3.0, 3.2], gap="small")
-    with back_col:
-        st.page_link("pages/01_xu_ly_hoa_don.py", label="← Về trang chính")
+    render_sidebar_nav()
+
+    title_col, nav_col = st.columns([3.0, 3.2], gap="small")
     with title_col:
         st.markdown(f"## {icon} {title}")
     with nav_col:

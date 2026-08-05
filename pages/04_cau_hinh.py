@@ -9,7 +9,7 @@ from src.session import get_config, get_current_version_metadata
 from ui import apply_global_styles, render_admin_top_bar
 
 st.set_page_config(
-    page_title="Cấu hình", page_icon="⚙️", layout="wide", initial_sidebar_state="collapsed"
+    page_title="Cấu hình", page_icon="⚙️", layout="wide", initial_sidebar_state="expanded"
 )
 apply_global_styles()
 
