@@ -20,7 +20,6 @@ GOP_VAT_COLUMN_ALIASES: dict[str, list[str]] = {
     "Tên kiot đại diện": ["tên kiot đại diện", "ten kiot dai dien"],
     "MÃ VAT KIOT": ["mã vat kiot", "ma vat kiot"],
     "TÊN VAT KIOT": ["tên vat kiot", "ten vat kiot"],
-    "MÃ KT": ["mã kt", "ma kt"],
     "TÊN KẾ TOÁN": ["tên kế toán", "ten ke toan", "tên hàng", "tên kt", "ten kt"],
     "Đơn vị tính": ["đơn vị tính", "don vi tinh", "đvt"],
     "TỒN ĐẦU NGÀY": ["tồn đầu ngày", "ton dau ngay"],

@@ -399,7 +399,6 @@ def test_display_rows_keep_business_columns():
         "Giá bán",
         "Mã VAT",
         "TÊN VAT",
-        "MÃ KT",
         "TÊN KẾ TOÁN",
         "ĐVT",
         "NGUỒN",

@@ -13,7 +13,6 @@ def test_check_result_rows_match_business_table_columns():
         gia_ban=6908,
         ma_vat="VAT10655",
         ten_vat="Đai chống gù (13,100 - 14,200) (VAT)",
-        ma_ke_toan="DCG_001",
         ten_ke_toan="Đai đeo lưng chống gù",
         dvt="Cái",
         nguon="Vận chuyển",

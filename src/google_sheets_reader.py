@@ -114,7 +114,6 @@ _GOP_VAT_ALIASES: dict[str, list[str]] = {
     "Tên kiot đại diện": ["tên kiot đại diện", "ten kiot dai dien"],
     "MÃ VAT KIOT": ["mã vat kiot", "ma vat kiot"],
     "TÊN VAT KIOT": ["tên vat kiot", "ten vat kiot"],
-    "MÃ KT": ["mã kt", "ma kt"],
     "TÊN KẾ TOÁN": ["tên kế toán", "ten ke toan", "tên hàng", "tên kt", "ten kt"],  # thực tế cột là Tên hàng
     "Đơn vị tính": ["đơn vị tính", "don vi tinh", "đvt"],
     "TỒN ĐẦU NGÀY": ["tồn đầu ngày", "ton dau ngay"],
@@ -201,7 +200,6 @@ def _parse_gop_vat(df: pd.DataFrame):
                 ten_kiot_dai_dien=normalize_code(gcol("Tên kiot đại diện")),
                 ma_vat_kiot=ma_vat_kiot,
                 ten_vat_kiot=normalize_code(gcol("TÊN VAT KIOT")),
-                ma_ke_toan=normalize_code(gcol("MÃ KT")),
                 ten_ke_toan=ten_ke_toan,
                 don_vi_tinh=don_vi_tinh,
                 ton_dau_ngay=to_float_or_none(gcol("TỒN ĐẦU NGÀY")),

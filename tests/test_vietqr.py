@@ -40,7 +40,6 @@ def _line(nguon, gia_ban, gia_nhap, sl_phan_bo=1):
         gia_ban=gia_ban,
         ma_vat="VAT01",
         ten_vat="Tên VAT 1",
-        ma_ke_toan="KT1",
         ten_ke_toan="Kế toán 1",
         dvt="Cái",
         nguon=nguon,

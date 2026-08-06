@@ -19,7 +19,6 @@ class StockRow:
     ten_kiot_dai_dien: str
     ma_vat_kiot: str
     ten_vat_kiot: str
-    ma_ke_toan: str
     ten_ke_toan: str
     don_vi_tinh: str
     ton_dau_ngay: Optional[float]
@@ -86,7 +85,6 @@ class DataWarning:
 class AccountingGroupCandidate:
     """Một nhóm (TÊN KẾ TOÁN, Đơn vị tính) ứng viên cho một dòng hóa đơn."""
 
-    ma_ke_toan: str
     ten_ke_toan: str
     don_vi_tinh: str
     stock_rows: list[StockRow]
@@ -118,7 +116,6 @@ class AllocationResultLine:
     gia_ban: float
     ma_vat: str
     ten_vat: str
-    ma_ke_toan: str
     ten_ke_toan: str
     dvt: str
     nguon: str

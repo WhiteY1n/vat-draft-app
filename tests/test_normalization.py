@@ -30,7 +30,7 @@ def test_to_float_or_none_handles_text_number():
 
 def test_resolve_column_name_case_and_space_tolerant():
     header = ["nguồn", " Mã kiot đại diện ", "Tên kiot đại diện", "MÃ VAT KIOT",
-              "TÊN VAT KIOT", "MÃ KT", "TÊN KẾ TOÁN", "đơn vị tính", "TỒN ĐẦU NGÀY",
+              "TÊN VAT KIOT", "TÊN KẾ TOÁN", "đơn vị tính", "TỒN ĐẦU NGÀY",
               "GIÁ BÁN", "THUẾ VAT", "THUẾ NK", "TỔNG THUẾ MẤT",
               "TỔNG ĐANG NHÁP", "TỒN CÓ THỂ NHÁP"]
     mapping = resolve_column_name(header, GOP_VAT_COLUMN_ALIASES)

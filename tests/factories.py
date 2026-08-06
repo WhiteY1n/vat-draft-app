@@ -24,7 +24,6 @@ def make_stock_row(
         ten_kiot_dai_dien="",
         ma_vat_kiot=ma_vat,
         ten_vat_kiot=ten_vat,
-        ma_ke_toan="MA_KT_MAU",
         ten_ke_toan=ten_kt,
         don_vi_tinh=dvt,
         ton_dau_ngay=ton,

@@ -53,7 +53,6 @@ def select_accounting_group_for_row(
 
         candidates.append(
             AccountingGroupCandidate(
-                ma_ke_toan=stock_rows[0].ma_ke_toan,
                 ten_ke_toan=display_ten_kt,
                 don_vi_tinh=display_dvt,
                 stock_rows=stock_rows,
