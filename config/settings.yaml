@@ -48,7 +48,12 @@ gid_khop_ma: 1192158065
 vietqr:
   template: "compact2"
   accounts:
-    # --- Tài khoản công ty (5) ---
+    # --- Tài khoản công ty (6) ---
+    vcb_tks_group:
+      label: "VCB TKS"
+      bank_id: "VCB"          # mã ngân hàng VietQR (Vietcombank - CN Thanh Xuân)
+      account_no: "1069579742"
+      account_name: "CONG TY CO PHAN THUONG MAI XUAT NHAP KHAU TKS GROUP"
     tks_group:
       label: "MB TKS"
       bank_id: "MB"           # mã ngân hàng VietQR (MB Bank)
