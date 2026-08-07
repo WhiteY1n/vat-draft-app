@@ -136,11 +136,13 @@ if file_lookup_clicked:
         st.warning("Hãy chọn ít nhất một file hóa đơn (.xlsx).")
     else:
         files = [(f.getvalue(), f.name) for f in uploaded_invoice_files]
-        parsed_rows, parse_errors = parse_invoice_files(files)
+        parsed_rows, parse_errors, _has_invoice_meta = parse_invoice_files(files)
         for err in parse_errors:
             st.warning(err)
         if parsed_rows:
-            rows = parsed_rows
+            # Tra cứu nguồn chỉ dùng 5 trường đầu. Parser dùng chung còn trả thêm
+            # Mã hóa đơn và Thành tiền cho trang xử lý hóa đơn.
+            rows = [row[:5] for row in parsed_rows]
 
 if rows is not None:
     lookup_df = pd.DataFrame(rows, columns=["Mã SP", "Tên SP", "SL", "Giá bán", "Ghi chú hàng hóa"])

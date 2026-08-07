@@ -1,8 +1,10 @@
 """Smoke test để phát hiện lỗi import/render ở từng trang Streamlit."""
 
+import io
 from pathlib import Path
 from unittest.mock import patch
 
+import openpyxl
 import pytest
 import streamlit as st
 from streamlit.testing.v1 import AppTest
@@ -59,3 +61,50 @@ def test_app_py_renders_without_exception(monkeypatch):
 
     messages = [exception.message for exception in app.exception]
     assert not messages, messages
+
+
+def test_source_lookup_accepts_uploaded_invoice_with_extended_columns(monkeypatch):
+    """Trang tra cứu chỉ lấy 5 cột cần dùng từ kết quả parser 7 cột."""
+
+    monkeypatch.setattr(st, "page_link", lambda *args, **kwargs: None)
+    load_config.cache_clear()
+
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.append(
+        [
+            "Mã hóa đơn",
+            "Mã hàng",
+            "Tên hàng",
+            "Số lượng",
+            "Giá bán",
+            "Ghi chú hàng hóa",
+            "Thành tiền",
+        ]
+    )
+    sheet.append(["HD000001", "SP01", "Sản phẩm 1", 2, 15000, "", 30000])
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+
+    app = AppTest.from_file(str(APP_ROOT / "pages/02_tra_cuu_nguon.py"), default_timeout=30)
+    app.session_state["current_workbook"] = _make_empty_workbook()
+    app.session_state["sheets_timestamp"] = "03/08/2026 10:00:00"
+    app.run()
+
+    app.file_uploader[0].upload(
+        "hoa_don.xlsx",
+        buffer.getvalue(),
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ).run()
+    next(button for button in app.button if button.key == "file-lookup-btn").click().run()
+
+    messages = [exception.message for exception in app.exception]
+    assert not messages, messages
+    assert list(app.session_state["source_lookup_df"].columns) == [
+        "Mã SP",
+        "Tên SP",
+        "SL",
+        "Giá bán",
+        "Ghi chú hàng hóa",
+    ]
+    assert len(app.session_state["source_lookup_df"]) == 1

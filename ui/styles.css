@@ -3,6 +3,7 @@
   --app-border: #dbe3ee;
   --app-muted: #64748b;
   --app-radius: 14px;
+  --streamlit-header-height: 3.75rem;
 }
 
 .stApp {
@@ -12,7 +13,9 @@
 div.block-container,
 [data-testid="stMainBlockContainer"] {
   max-width: 1600px;
-  padding-top: 1.5rem;
+  /* stAppHeader is absolutely positioned, so reserve its height even when
+     Streamlit collapses the sidebar and removes the usual top clearance. */
+  padding-top: calc(var(--streamlit-header-height) + 1.5rem);
   padding-bottom: 3rem;
 }
 
@@ -101,7 +104,7 @@ h1 {
 @media (max-width: 768px) {
   div.block-container,
   [data-testid="stMainBlockContainer"] {
-    padding: 1.25rem 1rem 2rem;
+    padding: calc(var(--streamlit-header-height) + 1.25rem) 1rem 2rem;
   }
 
   h1 {
