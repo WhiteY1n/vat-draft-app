@@ -44,6 +44,16 @@ def build_display_columns(has_invoice_meta: bool) -> list[str]:
     return columns
 
 
+def build_unified_columns(has_invoice_meta: bool) -> list[str]:
+    """Thứ tự cột cho bảng kết quả gộp (mục "Kết quả xử lý" của trang Xử lý hóa đơn).
+
+    Giống ``build_display_columns`` nhưng thêm cột "Trạng thái" ở đầu bảng
+    (OK / Thiếu tồn / Không có mã).
+    """
+
+    return ["Trạng thái"] + build_display_columns(has_invoice_meta)
+
+
 def build_result_lines(
     allocations: list[RowAllocation], config: AppConfig
 ) -> list[AllocationResultLine]:

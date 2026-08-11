@@ -12,6 +12,7 @@ from src.invoice_allocation import (
     build_allocation_display_rows,
     build_shortage_display_rows,
     build_unavailable_display_rows,
+    build_unified_display_rows,
 )
 from src.source_lookup import SourceLookupInput, SourceLookupIssue
 
@@ -451,18 +452,15 @@ def test_invoice_page_renders_allocation_and_shortage_tables(monkeypatch):
     assert [issue.ma_sp for issue in result.issues] == ["KHONGCO"]
 
     tables = [dataframe.value for dataframe in app.dataframe]
-    assert any("NGUỒN" in table.columns for table in tables)
-    assert any("Ghi chú" in table.columns for table in tables)
-    unavailable_table = next(table for table in tables if "Trạng thái trong file" in table.columns)
-    assert unavailable_table.iloc[0]["Trạng thái trong file"] == "Không có trong cả 2 sheet"
+    unified_table = next(table for table in tables if "Trạng thái" in table.columns)
+    assert "NGUỒN" in unified_table.columns
+    assert "Ghi chú" not in unified_table.columns
+    assert set(unified_table["Trạng thái"]) == {"OK", "Thiếu tồn", "Không có mã"}
+    assert list(unified_table.loc[unified_table["MÃ SP"] == "SP02", "Trạng thái"]) == ["Thiếu tồn"]
+    assert list(unified_table.loc[unified_table["MÃ SP"] == "KHONGCO", "Trạng thái"]) == ["Không có mã"]
 
     subheaders = [subheader.value for subheader in app.subheader]
-    result_sections = [
-        subheaders.index("Sản phẩm thỏa mãn"),
-        subheaders.index("Sản phẩm không đủ tồn"),
-        subheaders.index("Sản phẩm không tồn tại"),
-    ]
-    assert result_sections == sorted(result_sections)
+    assert "Danh sách sản phẩm" in subheaders
 
 
 def test_shortage_display_rows():
@@ -476,6 +474,35 @@ def test_shortage_display_rows():
     assert rows[0]["TỒN CÒN NHÁP"] == 10
     assert rows[0]["NGUỒN"] == "MAY"
     assert rows[0]["Ghi chú"] == "Không đủ số lượng tồn"
+
+
+def test_unified_rows_keep_same_invoice_code_adjacent():
+    """Gộp 3 nhóm kết quả; các dòng cùng Mã hóa đơn phải luôn liền kề nhau."""
+
+    stocks = [
+        make_stock_row(2, "MAY", "VAT01", "KT1", "Cái", 150),
+        make_stock_row(3, "MAY", "VAT03", "KT3", "Cái", 5),
+    ]
+    mappings = [
+        make_mapping_row(2, "SP01", "Sản phẩm 1", "VAT01"),
+        make_mapping_row(4, "SP03", "Sản phẩm 3", "VAT03"),
+    ]
+
+    queries = [
+        SourceLookupInput(1, ma_sp="SP01", sl=50, ma_hoa_don="HD1"),  # OK, HD1
+        SourceLookupInput(2, ma_sp="SP02", sl=5, ma_hoa_don="HD2"),  # không có mã, HD2
+        SourceLookupInput(3, ma_sp="SP03", sl=50, ma_hoa_don="HD1"),  # thiếu tồn, HD1
+    ]
+
+    result = _run(queries, mappings, stocks)
+    rows = build_unified_display_rows(result.lines, result.shortages, result.issues)
+
+    assert [row["Mã hóa đơn"] for row in rows] == ["HD1", "HD1", "HD2"]
+    assert [row["MÃ SP"] for row in rows] == ["SP01", "SP03", "SP02"]
+    assert [row["Trạng thái"] for row in rows] == ["OK", "Thiếu tồn", "Không có mã"]
+    # Trạng thái đã hiện "Thiếu tồn" nên cột Ghi chú không lặp lại lý do này.
+    assert rows[1]["Ghi chú"] == ""
+    assert "Không tìm thấy" in rows[2]["Ghi chú"]
 
 
 def test_unavailable_rows_explain_presence_in_each_sheet():

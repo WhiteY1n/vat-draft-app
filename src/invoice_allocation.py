@@ -510,6 +510,11 @@ def _add_issue(
             ten_sp=ten_sp,
             issue_type=issue_type,
             detail=detail,
+            sl=query.sl,
+            gia_ban=query.gia_ban,
+            ghi_chu_hang_hoa=str(query.ghi_chu_hang_hoa).strip() if query.ghi_chu_hang_hoa else "",
+            ma_hoa_don=str(query.ma_hoa_don).strip() if query.ma_hoa_don else "",
+            thanh_tien=to_float_or_none(query.thanh_tien),
         )
     )
 
@@ -576,6 +581,124 @@ def build_shortage_display_rows(shortages: list[InvoiceShortage]) -> list[dict[s
         }
         for shortage in shortages
     ]
+
+
+STATUS_OK = "OK"
+STATUS_SHORTAGE = "Thiếu tồn"
+STATUS_MISSING = "Không có mã"
+
+
+def build_unified_display_rows(
+    lines: list[InvoiceAllocationLine],
+    shortages: list[InvoiceShortage],
+    issues: list[SourceLookupIssue],
+) -> list[dict[str, Any]]:
+    """Gộp 3 nhóm kết quả (thỏa mãn / thiếu tồn / không có mã) vào một bảng.
+
+    Mỗi dòng có thêm cột "Trạng thái" (OK / Thiếu tồn / Không có mã) và cột
+    "Ghi chú" giải thích lý do khi không phải OK. Các dòng cùng Mã hóa đơn
+    luôn nằm cạnh nhau: nhóm theo Mã hóa đơn xuất hiện trước trong dữ liệu
+    nhập, còn trong cùng một Mã hóa đơn thì giữ nguyên thứ tự nhập ban đầu.
+    """
+
+    entries: list[tuple[int, str, int, dict[str, Any]]] = []
+
+    for order, line in enumerate(lines):
+        entries.append(
+            (
+                line.query_order,
+                str(line.ma_hoa_don or ""),
+                order,
+                {
+                    "Trạng thái": STATUS_OK,
+                    "MÃ SP": line.ma_sp,
+                    "TÊN SP": line.ten_sp,
+                    "SL": line.sl_phan_bo,
+                    "Giá bán": to_float_or_none(line.gia_ban),
+                    "Mã VAT": line.ma_vat,
+                    "TÊN VAT": line.ten_vat,
+                    "TÊN KẾ TOÁN": line.ten_ke_toan,
+                    "ĐVT": line.dvt,
+                    "NGUỒN": line.nguon,
+                    "TỒN CÒN NHÁP": line.ton_con_nhap,
+                    "%VAT": line.phan_tram_vat * 100 if line.phan_tram_vat is not None else None,
+                    "GIÁ NHÁP\n(Giá bán/(1+%VAT))": line.gia_nhap,
+                    "Ghi chú hàng hóa": line.ghi_chu_hang_hoa,
+                    "Mã hóa đơn": line.ma_hoa_don,
+                    "Thành tiền": line.thanh_tien,
+                    "Ghi chú": "",
+                },
+            )
+        )
+
+    for order, shortage in enumerate(shortages):
+        entries.append(
+            (
+                shortage.query_order,
+                str(shortage.ma_hoa_don or ""),
+                order,
+                {
+                    "Trạng thái": STATUS_SHORTAGE,
+                    "MÃ SP": shortage.ma_sp,
+                    "TÊN SP": shortage.ten_sp,
+                    "SL": shortage.sl_yeu_cau,
+                    "Giá bán": to_float_or_none(shortage.gia_ban),
+                    "Mã VAT": shortage.ma_vat,
+                    "TÊN VAT": shortage.ten_vat,
+                    "TÊN KẾ TOÁN": shortage.ten_ke_toan,
+                    "ĐVT": shortage.dvt,
+                    "NGUỒN": shortage.nguon,
+                    "TỒN CÒN NHÁP": shortage.ton_con_nhap,
+                    "%VAT": shortage.phan_tram_vat * 100
+                    if shortage.phan_tram_vat is not None
+                    else None,
+                    "GIÁ NHÁP\n(Giá bán/(1+%VAT))": shortage.gia_nhap,
+                    "Ghi chú hàng hóa": shortage.ghi_chu_hang_hoa,
+                    "Mã hóa đơn": shortage.ma_hoa_don,
+                    "Thành tiền": shortage.thanh_tien,
+                    # Không lặp lại "Không đủ số lượng tồn" ở đây — cột Trạng thái
+                    # đã thể hiện "Thiếu tồn" rồi.
+                    "Ghi chú": "",
+                },
+            )
+        )
+
+    for order, issue in enumerate(issues):
+        entries.append(
+            (
+                issue.query_order,
+                str(issue.ma_hoa_don or ""),
+                order,
+                {
+                    "Trạng thái": STATUS_MISSING,
+                    "MÃ SP": issue.ma_sp,
+                    "TÊN SP": issue.ten_sp,
+                    "SL": to_float_or_none(issue.sl),
+                    "Giá bán": to_float_or_none(issue.gia_ban),
+                    "Mã VAT": "",
+                    "TÊN VAT": "",
+                    "TÊN KẾ TOÁN": "",
+                    "ĐVT": "",
+                    "NGUỒN": "",
+                    "TỒN CÒN NHÁP": None,
+                    "%VAT": None,
+                    "GIÁ NHÁP\n(Giá bán/(1+%VAT))": None,
+                    "Ghi chú hàng hóa": issue.ghi_chu_hang_hoa,
+                    "Mã hóa đơn": issue.ma_hoa_don,
+                    "Thành tiền": issue.thanh_tien,
+                    "Ghi chú": issue.detail,
+                },
+            )
+        )
+
+    first_seen: dict[str, int] = {}
+    for query_order, ma_hoa_don, _order, _row in entries:
+        current = first_seen.get(ma_hoa_don)
+        if current is None or query_order < current:
+            first_seen[ma_hoa_don] = query_order
+
+    entries.sort(key=lambda e: (first_seen[e[1]], e[1], e[0], e[2]))
+    return [entry[3] for entry in entries]
 
 
 def build_unavailable_display_rows(

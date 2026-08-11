@@ -11,12 +11,10 @@ from src.auth import get_current_user
 from src.invoice_allocation import (
     InvoiceAllocationResult,
     allocate_invoice_sources,
-    build_allocation_display_rows,
-    build_shortage_display_rows,
-    build_unavailable_display_rows,
+    build_unified_display_rows,
 )
 from src.invoice_file_reader import parse_invoice_files
-from src.result_builder import build_display_columns
+from src.result_builder import build_unified_columns
 from src.session import get_config, get_current_version_metadata, load_workbook_from_sheets
 from src.source_lookup import SourceLookupInput
 from src.vietqr import (
@@ -96,18 +94,7 @@ render_section_header(
     "Dán 4 cột từ Excel theo thứ tự Mã SP, Tên SP, SL, Giá bán, hoặc tải trực tiếp file hóa đơn (.xlsx).",
 )
 with st.container(border=True):
-    tab_paste, tab_file = st.tabs(["📋 Dán dữ liệu", "📁 Tải file hóa đơn"])
-
-    with tab_paste:
-        pasted_text = st.text_area("Khu vực dán dữ liệu", height=150, key="paste_area")
-
-        col_read, col_clear, _ = render_action_bar([1.7, 1, 3])
-        with col_read:
-            read_and_check_clicked = st.button(
-                "📥 Đọc và kiểm tra dữ liệu", type="primary", key="paste-read-btn"
-            )
-        with col_clear:
-            clear_clicked = st.button("🗑️ Xóa toàn bộ", type="secondary", key="paste-clear-btn")
+    tab_file, tab_paste = st.tabs(["📁 Tải file hóa đơn", "📋 Dán dữ liệu"])
 
     with tab_file:
         st.caption(
@@ -126,6 +113,17 @@ with st.container(border=True):
             key="file-read-btn",
             disabled=not uploaded_invoice_files,
         )
+
+    with tab_paste:
+        pasted_text = st.text_area("Khu vực dán dữ liệu", height=150, key="paste_area")
+
+        col_read, col_clear, _ = render_action_bar([1.7, 1, 3])
+        with col_read:
+            read_and_check_clicked = st.button(
+                "📥 Đọc và kiểm tra dữ liệu", type="primary", key="paste-read-btn"
+            )
+        with col_clear:
+            clear_clicked = st.button("🗑️ Xóa toàn bộ", type="secondary", key="paste-clear-btn")
 
 def _clear_vietqr_widget_state() -> None:
     """Xóa các giá trị QR (số tiền/tài khoản đã chọn) của kết quả cũ để tránh hiển thị lệch."""
@@ -258,17 +256,26 @@ if result is not None:
         render_metric_card("Không tồn tại", f"{unavailable_count:,}")
 
     render_section_header(
-        "Sản phẩm thỏa mãn",
-        "Các sản phẩm tồn tại trong dữ liệu, đủ số lượng và có thể xuất. Mỗi nguồn được dùng hiển thị thành một dòng riêng.",
+        "Danh sách sản phẩm",
+        "Gộp cả 3 nhóm sản phẩm vào một bảng, phân biệt bằng cột Trạng thái (OK / Thiếu tồn / "
+        "Không có mã). Các dòng cùng Mã hóa đơn luôn được xếp cạnh nhau.",
     )
-    if result.lines:
-        st.success(f"Có {output_count} sản phẩm thỏa mãn điều kiện và có thể xuất.")
-        result_df = pd.DataFrame(build_allocation_display_rows(result.lines)).rename(
-            columns={
-                "GIÁ NHÁP (Giá bán/(1+%VAT))": "GIÁ NHÁP\n(Giá bán/(1+%VAT))"
-            }
+    has_any_row = bool(result.lines or result.shortages or result.issues)
+    if has_any_row:
+        status_parts = [f"{output_count} OK"]
+        if shortage_count:
+            status_parts.append(f"{shortage_count} thiếu tồn")
+        if unavailable_count:
+            status_parts.append(f"{unavailable_count} không có mã")
+        if shortage_count or unavailable_count:
+            st.warning(" · ".join(status_parts))
+        else:
+            st.success(" · ".join(status_parts))
+
+        result_df = pd.DataFrame(
+            build_unified_display_rows(result.lines, result.shortages, result.issues)
         )
-        display_columns = build_display_columns(st.session_state.get("invoice_has_meta", False))
+        display_columns = build_unified_columns(st.session_state.get("invoice_has_meta", False))
         result_df = result_df[display_columns]
 
         NO_SORT = "(Không sắp xếp)"
@@ -303,17 +310,30 @@ if result is not None:
             st.caption("⚠️ Chọn cột sắp xếp chính trước khi chọn cột sắp xếp phụ.")
 
         if sort_by:
+            # Sắp xếp theo lựa chọn của người dùng sẽ phá vỡ việc gộp nhóm theo
+            # Mã hóa đơn — báo rõ để người dùng biết đang xem theo thứ tự nào.
             result_df = result_df.sort_values(
                 by=sort_by, ascending=ascending, kind="stable"
             ).reset_index(drop=True)
+            st.caption("ℹ️ Đang sắp xếp theo cột đã chọn — các dòng cùng Mã hóa đơn có thể không còn liền kề.")
+
+        def _status_color(value: str) -> str:
+            if value == "OK":
+                return "color: #2e7d32; font-weight: 600;"
+            if value == "Thiếu tồn":
+                return "color: #e65100; font-weight: 600;"
+            if value == "Không có mã":
+                return "color: #d32f2f; font-weight: 600;"
+            return ""
 
         with st.container(key="result-highlight"):
             st.dataframe(
-                result_df,
+                result_df.style.map(_status_color, subset=["Trạng thái"]),
                 width="stretch",
                 height=440,
                 hide_index=True,
                 column_config={
+                    "Trạng thái": st.column_config.TextColumn(width=90),
                     "MÃ SP": st.column_config.TextColumn(width=68),
                     "TÊN SP": st.column_config.TextColumn(width=175),
                     "SL": st.column_config.NumberColumn(width=48, format="%.0f"),
@@ -343,70 +363,7 @@ if result is not None:
             mime="text/csv",
         )
     else:
-        st.info("Không có sản phẩm nào thỏa mãn đầy đủ điều kiện để xuất.")
-
-    render_section_header(
-        "Sản phẩm không đủ tồn",
-        "Các sản phẩm đã đối chiếu được mã nhưng tổng tồn còn nháp nhỏ hơn số lượng yêu cầu.",
-    )
-    if result.shortages:
-        st.warning(f"Có {len(result.shortages)} sản phẩm không đủ số lượng tồn.")
-        shortage_df = pd.DataFrame(build_shortage_display_rows(result.shortages))
-        st.dataframe(
-            shortage_df.style.map(lambda _: "color: #d32f2f;", subset=["Ghi chú"]),
-            width="stretch",
-            hide_index=True,
-            column_config={
-                "MÃ SP": st.column_config.TextColumn(width=68),
-                "TÊN SP": st.column_config.TextColumn(width=175),
-                "SL": st.column_config.NumberColumn(width=48, format="%.0f"),
-                "Giá bán": st.column_config.NumberColumn(width=62, format="%.0f"),
-                "Mã VAT": st.column_config.TextColumn(width=70),
-                "TÊN VAT": st.column_config.TextColumn(width=175),
-                "TÊN KẾ TOÁN": st.column_config.TextColumn(width=165),
-                "ĐVT": st.column_config.TextColumn(width=46),
-                "NGUỒN": st.column_config.TextColumn(width=90),
-                "TỒN CÒN NHÁP": st.column_config.NumberColumn(width=68, format="%.0f"),
-                "%VAT": st.column_config.NumberColumn(width=46, format="%.0f%%"),
-                "GIÁ NHÁP\n(Giá bán/(1+%VAT))": st.column_config.NumberColumn(
-                    width=130, format="%.0f"
-                ),
-                "Ghi chú hàng hóa": st.column_config.TextColumn(width=150),
-                "Mã hóa đơn": st.column_config.TextColumn(width=90),
-                "Thành tiền": st.column_config.NumberColumn(width=100, format="%,d"),
-                "Ghi chú": st.column_config.TextColumn(width=150),
-            },
-        )
-    else:
-        st.success("Không có sản phẩm nào bị thiếu tồn.")
-
-    render_section_header(
-        "Sản phẩm không tồn tại",
-        "Hiển thị rõ sản phẩm không có trong Gộp VAT, Khớp mã hoặc cả hai sheet để dễ cập nhật dữ liệu nguồn.",
-    )
-    if result.issues:
-        st.error(f"Có {len(result.issues)} sản phẩm không tồn tại hoặc chưa thể đối chiếu.")
-        unavailable_df = pd.DataFrame(
-            build_unavailable_display_rows(
-                result.issues,
-                workbook.mapping_rows,
-                workbook.stock_rows,
-            )
-        )
-        st.dataframe(
-            unavailable_df,
-            width="stretch",
-            hide_index=True,
-            column_config={
-                "Dòng nhập": st.column_config.NumberColumn(width="small", format="%d"),
-                "Mã SP": st.column_config.TextColumn(width="medium"),
-                "Tên SP": st.column_config.TextColumn(width="large"),
-                "Trạng thái trong file": st.column_config.TextColumn(width="medium"),
-                "Nội dung": st.column_config.TextColumn(width="large"),
-            },
-        )
-    else:
-        st.success("Không có sản phẩm nào thiếu dữ liệu ở Gộp VAT hoặc Khớp mã.")
+        st.info("Chưa có sản phẩm nào để hiển thị.")
 
     # -----------------------------------------------------------------------
     # Thanh toán qua QR — chỉ hiện sau khi có sản phẩm thỏa mãn để xuất.

@@ -51,6 +51,14 @@ class SourceLookupIssue:
     ten_sp: str
     issue_type: str
     detail: str
+    # Các trường dưới đây chỉ được điền khi issue đến từ trang Xử lý hóa đơn
+    # (allocate_invoice_sources), phục vụ bảng kết quả gộp có cột Trạng thái.
+    # Trang Tra cứu nguồn không dùng các trường này nên để mặc định rỗng.
+    sl: Any = ""
+    gia_ban: Any = ""
+    ghi_chu_hang_hoa: Any = ""
+    ma_hoa_don: Any = ""
+    thanh_tien: Any = None
 
 
 @dataclass
