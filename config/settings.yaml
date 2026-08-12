@@ -157,3 +157,19 @@ vietqr:
     "TKSCAO": tks_group
     "VC": vc_express
 
+  # Mapping "Đơn vị bán hàng" trên hóa đơn PDF -> tài khoản công ty tương ứng.
+  # Dùng cho chức năng tải hóa đơn PDF lên trang Tạo QR: app trích tên đơn vị
+  # bán hàng, so khớp KHÔNG PHÂN BIỆT HOA/THƯỜNG VÀ DẤU với từng "match" bên
+  # dưới (khớp kiểu "chứa chuỗi"), rồi đẩy các tài khoản khớp lên đầu danh sách
+  # chọn (12 tài khoản cá nhân không nằm trong mapping này, vẫn hiện đầy đủ bên
+  # dưới để chọn thủ công khi cần).
+  seller_account_map:
+    - match: ["TKS GROUP"]
+      accounts: [vcb_tks_group, tks_group]
+    - match: ["VC EXPRESS"]
+      accounts: [vc_express, mb_vc_ex]
+    - match: ["LUCKY HOUSE"]
+      accounts: [lucky_house]
+    - match: ["SHC"]
+      accounts: [shc]
+

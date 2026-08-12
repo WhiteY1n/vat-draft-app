@@ -91,6 +91,18 @@ def normalize_code_for_match(value) -> str:
     return text.casefold()
 
 
+def normalize_diacritics_insensitive(value) -> str:
+    """Dạng dùng để so khớp CHỨA CHUỖI: bỏ dấu, không phân biệt hoa/thường, gộp
+    khoảng trắng. Dùng để khớp tên đơn vị bán hàng trích từ hóa đơn với từ khóa
+    cấu hình (VD: "CÔNG TY ... TKS GROUP" chứa từ khóa "TKS GROUP").
+    """
+
+    text = normalize_code(value)
+    text = _strip_diacritics(text)
+    text = re.sub(r"\s+", " ", text)
+    return text.casefold()
+
+
 # ---------------------------------------------------------------------------
 # Chuẩn hóa số
 # ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 """Test tạo mã QR VietQR cho hóa đơn."""
 
-from src.config import AppConfig, VietQrAccount, VietQrConfig
+from src.config import AppConfig, SellerAccountRule, VietQrAccount, VietQrConfig
 from src.invoice_allocation import InvoiceAllocationLine
 from src.vietqr import (
     build_vietqr_image_url,
@@ -10,6 +10,7 @@ from src.vietqr import (
     extract_invoice_codes,
     format_amount_input,
     get_account_for_source,
+    get_accounts_for_seller,
     parse_amount_input,
 )
 
@@ -60,6 +61,55 @@ def _config():
             source_account_map={"MAY": "mbbank", "CAO": "vietinbank"},
         )
     )
+
+
+def _config_with_seller_map():
+    return AppConfig(
+        vietqr=VietQrConfig(
+            template="compact2",
+            accounts={
+                "vcb_tks_group": VietQrAccount(key="vcb_tks_group", bank_id="VCB", account_no="1069579742"),
+                "tks_group": VietQrAccount(key="tks_group", bank_id="MB", account_no="606266688888"),
+                "shc": VietQrAccount(key="shc", bank_id="MB", account_no="525345345"),
+            },
+            seller_account_map=[
+                SellerAccountRule(match=["TKS GROUP"], accounts=["vcb_tks_group", "tks_group"]),
+                SellerAccountRule(match=["SHC"], accounts=["shc"]),
+            ],
+        )
+    )
+
+
+def test_get_accounts_for_seller_matches_ignoring_accents_and_case():
+    config = _config_with_seller_map()
+
+    accounts = get_accounts_for_seller(
+        "CÔNG TY CỔ PHẦN THƯƠNG MẠI XUẤT NHẬP KHẨU TKS GROUP", config
+    )
+
+    assert [a.key for a in accounts] == ["vcb_tks_group", "tks_group"]
+
+
+def test_get_accounts_for_seller_matches_by_substring_regardless_of_extra_words():
+    config = _config_with_seller_map()
+
+    accounts = get_accounts_for_seller(
+        "CÔNG TY CỔ PHẦN THƯƠNG MẠI TỔNG HỢP SHC GROUP", config
+    )
+
+    assert [a.key for a in accounts] == ["shc"]
+
+
+def test_get_accounts_for_seller_returns_empty_when_no_rule_matches():
+    config = _config_with_seller_map()
+
+    assert get_accounts_for_seller("CÔNG TY TNHH KHÔNG LIÊN QUAN", config) == []
+
+
+def test_get_accounts_for_seller_returns_empty_for_blank_name():
+    config = _config_with_seller_map()
+
+    assert get_accounts_for_seller("", config) == []
 
 
 def test_extract_invoice_code_from_typical_file_name():

@@ -13,7 +13,11 @@ from urllib.parse import quote
 
 from src.config import AppConfig, VietQrAccount
 from src.invoice_allocation import InvoiceAllocationLine
-from src.normalization import normalize_code_for_match, to_float_or_none
+from src.normalization import (
+    normalize_code_for_match,
+    normalize_diacritics_insensitive,
+    to_float_or_none,
+)
 
 _VIETQR_IMAGE_BASE = "https://img.vietqr.io/image"
 
@@ -65,6 +69,27 @@ def get_account_for_source(nguon: str, config: AppConfig) -> VietQrAccount | Non
         if normalize_code_for_match(source_name) == target:
             return config.vietqr.accounts.get(account_key)
     return None
+
+
+def get_accounts_for_seller(seller_name: str, config: AppConfig) -> list[VietQrAccount]:
+    """Tìm các tài khoản công ty khớp với "Đơn vị bán hàng" trích từ hóa đơn PDF
+    (mục 05_tao_qr.py — upload hóa đơn), dựa trên ``config.vietqr.seller_account_map``.
+
+    So khớp kiểu "chứa chuỗi", không phân biệt hoa/thường và dấu. Trả về danh
+    sách tài khoản theo thứ tự khai báo trong config, loại trùng; rỗng nếu
+    không khớp nhóm nào (VD: hóa đơn từ công ty ngoài, hoặc chưa cấu hình).
+    """
+
+    if not seller_name:
+        return []
+    target = normalize_diacritics_insensitive(seller_name)
+    matched_keys: list[str] = []
+    for rule in config.vietqr.seller_account_map or []:
+        if any(normalize_diacritics_insensitive(kw) in target for kw in rule.match):
+            for key in rule.accounts:
+                if key not in matched_keys:
+                    matched_keys.append(key)
+    return [config.vietqr.accounts[key] for key in matched_keys if key in config.vietqr.accounts]
 
 
 def compute_source_amounts(lines: list[InvoiceAllocationLine]) -> dict[str, SourceAmount]:

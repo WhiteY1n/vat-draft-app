@@ -47,10 +47,23 @@ class VietQrAccount:
 
 
 @dataclass
+class SellerAccountRule:
+    """Một nhóm khớp cho chức năng đọc hóa đơn PDF (trang Tạo QR): nếu tên
+    "Đơn vị bán hàng" trích từ hóa đơn chứa một trong các từ khóa ở ``match``
+    (không phân biệt hoa/thường, không phân biệt dấu) thì gợi ý các tài khoản
+    trong ``accounts`` (key trong ``VietQrConfig.accounts``).
+    """
+
+    match: list[str] = field(default_factory=list)
+    accounts: list[str] = field(default_factory=list)
+
+
+@dataclass
 class VietQrConfig:
     template: str = "compact2"
     accounts: dict[str, VietQrAccount] = field(default_factory=dict)
     source_account_map: dict[str, str] = field(default_factory=dict)
+    seller_account_map: list[SellerAccountRule] = field(default_factory=list)
 
 
 @dataclass
@@ -119,10 +132,18 @@ def load_config(config_path: str | None = None) -> AppConfig:
         )
         for account_key, account_raw in (vietqr_raw.get("accounts", {}) or {}).items()
     }
+    seller_account_map = [
+        SellerAccountRule(
+            match=list(rule.get("match", []) or []),
+            accounts=list(rule.get("accounts", []) or []),
+        )
+        for rule in (vietqr_raw.get("seller_account_map", []) or [])
+    ]
     vietqr = VietQrConfig(
         template=vietqr_raw.get("template", "compact2"),
         accounts=vietqr_accounts,
         source_account_map=vietqr_raw.get("source_account_map", {}) or {},
+        seller_account_map=seller_account_map,
     )
 
     auth_mode = os.environ.get("AUTH_MODE", raw.get("auth_mode", "none"))
