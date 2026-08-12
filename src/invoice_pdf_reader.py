@@ -14,8 +14,6 @@ import io
 import re
 from dataclasses import dataclass
 
-from src.vietqr import parse_amount_input
-
 # Các nhãn trên hóa đơn mẫu (Thông tư/mẫu hóa đơn điện tử phổ biến) đều có dạng
 # "Tên nhãn tiếng Việt(Tên nhãn tiếng Anh): giá trị" trên một dòng.
 _SELLER_RE = re.compile(r"Đơn vị bán hàng\s*\(Seller\)\s*:\s*(.+)")
@@ -23,6 +21,36 @@ _TOTAL_PAYMENT_RE = re.compile(r"Tổng cộng tiền thanh toán\s*\(Total paym
 _TOTAL_BEFORE_VAT_RE = re.compile(r"Cộng tiền hàng\s*\(Total amount\)\s*:\s*([\d.,]+)")
 _VAT_AMOUNT_RE = re.compile(r"Tiền thuế GTGT\s*\(VAT amount\)\s*:\s*([\d.,]+)")
 _SERIAL_RE = re.compile(r"Ký hiệu\s*\(Serial No\)\s*:\s*(\S+)")
+
+
+def _parse_invoice_amount(text: str) -> int | None:
+    """Đọc số tiền theo ĐÚNG định dạng hóa đơn Việt Nam: dấu CHẤM ngăn cách hàng
+    nghìn, dấu PHẨY (nếu có) là phần thập phân của đồng — ví dụ "11.094.062,4"
+    nghĩa là 11.094.062,4 đồng (do làm tròn thuế), KHÔNG PHẢI 110.940.624 đồng.
+
+    Đây là chiều ngược lại với ``format_amount_input``/``parse_amount_input``
+    trong ``src.vietqr`` (dùng cho ô nhập tay trong app, kiểu Mỹ: phẩy ngăn
+    cách hàng nghìn) — cố tình KHÔNG dùng chung hàm đó ở đây để tránh đọc sai
+    số tiền trên hóa đơn (rủi ro thực tế: sai lệch 10 lần số tiền chuyển khoản).
+    """
+
+    if not text:
+        return None
+    text = text.strip()
+    # Phần thập phân là cụm số ngắn (1-2 chữ số) sau dấu phẩy CUỐI CÙNG — nếu
+    # dài hơn thì nhiều khả năng đó là dấu phân cách hàng nghìn kiểu Mỹ, không
+    # phải phần thập phân.
+    int_part, sep, frac_part = text.rpartition(",")
+    if not sep or not re.fullmatch(r"\d{1,2}", frac_part):
+        int_part, frac_part = text, ""
+
+    digits = re.sub(r"[^\d]", "", int_part)
+    if not digits:
+        return None
+    value = int(digits)
+    if frac_part and int(frac_part[0]) >= 5:
+        value += 1
+    return value
 
 
 @dataclass
@@ -70,9 +98,9 @@ def parse_invoice_text(text: str) -> ParsedInvoice:
 
     parsed = ParsedInvoice(
         seller_name=seller_name,
-        total_payment=parse_amount_input(total_match.group(1)) if total_match else None,
-        total_before_vat=parse_amount_input(before_vat_match.group(1)) if before_vat_match else None,
-        vat_amount=parse_amount_input(vat_match.group(1)) if vat_match else None,
+        total_payment=_parse_invoice_amount(total_match.group(1)) if total_match else None,
+        total_before_vat=_parse_invoice_amount(before_vat_match.group(1)) if before_vat_match else None,
+        vat_amount=_parse_invoice_amount(vat_match.group(1)) if vat_match else None,
         serial_no=serial_match.group(1).strip() if serial_match else "",
         raw_text=text,
     )

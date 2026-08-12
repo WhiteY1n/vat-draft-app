@@ -55,3 +55,30 @@ def test_parse_invoice_text_unrecognized_content_returns_error():
     parsed = parse_invoice_text("Đây là một văn bản bất kỳ không phải hóa đơn.")
 
     assert parsed.error is not None
+
+
+# Hóa đơn có số tiền lẻ đồng do làm tròn thuế (dấu phẩy = phần thập phân, dấu
+# chấm = phân cách hàng nghìn — kiểu Việt Nam). Bug đã xảy ra: đọc nhầm thành
+# 110.940.624đ (gấp ~10 lần) do lẫn dấu phẩy thập phân với phân cách hàng nghìn.
+_DECIMAL_COMMA_INVOICE_TEXT = (
+    "Cộng tiền hàng (Total amount): 10.272.280\n"
+    "Thuế suất GTGT (VAT Rate): 8% Tiền thuế GTGT (VAT amount): 821.782,4\n"
+    "Tổng cộng tiền thanh toán (Total payment): 11.094.062,4"
+)
+
+
+def test_parse_invoice_text_handles_decimal_comma_from_tax_rounding():
+    parsed = parse_invoice_text(_DECIMAL_COMMA_INVOICE_TEXT)
+
+    assert parsed.error is None
+    assert parsed.total_before_vat == 10_272_280
+    assert parsed.vat_amount == 821_782  # .4 đồng làm tròn xuống
+    assert parsed.total_payment == 11_094_062  # KHÔNG PHẢI 110.940.624
+
+
+def test_parse_invoice_text_rounds_decimal_comma_up_when_half_or_more():
+    parsed = parse_invoice_text(
+        "Tổng cộng tiền thanh toán (Total payment): 11.094.062,6"
+    )
+
+    assert parsed.total_payment == 11_094_063
