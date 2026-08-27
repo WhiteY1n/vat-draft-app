@@ -202,12 +202,20 @@ def test_shortage_when_total_stock_is_not_enough():
     result = _run([SourceLookupInput(1, ma_sp="SP01", sl=200)], _mappings(), stocks)
 
     assert not result.lines
-    assert len(result.shortages) == 1
+    assert len(result.shortages) == 2
+    assert result.shortage_product_count == 1
     shortage = result.shortages[0]
     assert (shortage.sl_yeu_cau, shortage.tong_ton, shortage.thieu) == (200, 170, 30)
     assert (shortage.nguon, shortage.ton_con_nhap) == ("MAY", 100)
     assert "," not in shortage.nguon
     assert shortage.ghi_chu == "Không đủ số lượng tồn"
+    assert [(row.nguon, row.ton_con_nhap) for row in result.shortages] == [
+        ("MAY", 100),
+        ("CAO", 70),
+    ]
+    assert all((row.tong_ton, row.thieu) == (170, 30) for row in result.shortages)
+    assert len(build_shortage_display_rows(result.shortages)) == 2
+    assert len(build_unified_display_rows([], result.shortages, [])) == 2
 
 
 def test_shortage_representative_uses_largest_total_stock_from_one_source():
@@ -222,6 +230,13 @@ def test_shortage_representative_uses_largest_total_stock_from_one_source():
     shortage = result.shortages[0]
     assert (shortage.tong_ton, shortage.thieu) == (210, 40)
     assert (shortage.nguon, shortage.ton_con_nhap) == ("MAY", 110)
+    assert result.shortage_product_count == 1
+    assert [(row.nguon, row.ton_con_nhap) for row in result.shortages] == [
+        ("MAY", 110),
+        ("CAO", 100),
+    ]
+    assert all((row.tong_ton, row.thieu) == (210, 40) for row in result.shortages)
+    assert result.shortages[1].ten_ke_toan == "KT3"
     assert shortage.ten_ke_toan in {"KT1", "KT2"}
 
 
@@ -235,6 +250,11 @@ def test_shortage_representative_uses_existing_priority_when_stock_is_equal():
 
     shortage = result.shortages[0]
     assert (shortage.nguon, shortage.ton_con_nhap) == ("MAY", 60)
+    assert [(row.nguon, row.ton_con_nhap) for row in result.shortages] == [
+        ("MAY", 60),
+        ("CAO", 60),
+    ]
+    assert [row.ten_ke_toan for row in result.shortages] == ["KT2", "KT1"]
     assert shortage.ten_ke_toan == "KT2"
 
 

@@ -243,7 +243,7 @@ if result is not None:
 
     input_count = st.session_state.get("last_input_count", 0)
     output_count = len({line.query_order for line in result.lines})
-    shortage_count = len(result.shortages)
+    shortage_count = result.shortage_product_count
     unavailable_count = len(result.issues)
     summary_columns = st.columns(4, gap="small")
     with summary_columns[0]:

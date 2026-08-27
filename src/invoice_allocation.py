@@ -85,6 +85,12 @@ class InvoiceAllocationResult:
     issues: list[SourceLookupIssue] = field(default_factory=list)
     skipped_non_positive_stock_count: int = 0
 
+    @property
+    def shortage_product_count(self) -> int:
+        """Count shortage products once even when they have multiple source rows."""
+
+        return len({shortage.query_order for shortage in self.shortages})
+
 
 @dataclass
 class _Candidate:
@@ -166,38 +172,46 @@ def _allocate_one_product(
 
     if need > total_ton + TOLERANCE:
         thieu = need - total_ton
-        best, representative_source, representative_stock = (
-            _select_shortage_representative(item.candidates, source_key)
-        )
         gia_ban = to_float_or_none(item.query.gia_ban)
-        phan_tram_vat = best.stock.thue_vat
-        gia_nhap = None
-        if gia_ban is not None and phan_tram_vat is not None and (1 + phan_tram_vat) != 0:
-            gia_nhap = round(gia_ban / (1 + phan_tram_vat), config.gia_nhap_decimal_places)
-        result.shortages.append(
-            InvoiceShortage(
-                query_order=item.query.order_index,
-                ma_sp=item.ma_sp,
-                ten_sp=item.ten_sp,
-                sl_yeu_cau=need,
-                tong_ton=total_ton,
-                thieu=thieu,
-                gia_ban=item.query.gia_ban,
-                ma_vat=item.mapping.ma_vat_kiot,
-                ten_vat=item.mapping.ten_truoc_vat or best.stock.ten_vat_kiot,
-                ten_ke_toan=best.stock.ten_ke_toan,
-                dvt=best.stock.don_vi_tinh,
-                nguon=representative_source,
-                ton_con_nhap=representative_stock,
-                phan_tram_vat=phan_tram_vat,
-                gia_nhap=gia_nhap,
-                ghi_chu_hang_hoa=str(item.query.ghi_chu_hang_hoa).strip()
-                if item.query.ghi_chu_hang_hoa
-                else "",
-                ma_hoa_don=str(item.query.ma_hoa_don).strip() if item.query.ma_hoa_don else "",
-                thanh_tien=to_float_or_none(item.query.thanh_tien),
+        for best, source, source_stock in _select_shortage_sources(
+            item.candidates, source_key
+        ):
+            phan_tram_vat = best.stock.thue_vat
+            gia_nhap = None
+            if (
+                gia_ban is not None
+                and phan_tram_vat is not None
+                and (1 + phan_tram_vat) != 0
+            ):
+                gia_nhap = round(
+                    gia_ban / (1 + phan_tram_vat), config.gia_nhap_decimal_places
+                )
+            result.shortages.append(
+                InvoiceShortage(
+                    query_order=item.query.order_index,
+                    ma_sp=item.ma_sp,
+                    ten_sp=item.ten_sp,
+                    sl_yeu_cau=need,
+                    tong_ton=total_ton,
+                    thieu=thieu,
+                    gia_ban=item.query.gia_ban,
+                    ma_vat=item.mapping.ma_vat_kiot,
+                    ten_vat=item.mapping.ten_truoc_vat or best.stock.ten_vat_kiot,
+                    ten_ke_toan=best.stock.ten_ke_toan,
+                    dvt=best.stock.don_vi_tinh,
+                    nguon=source,
+                    ton_con_nhap=source_stock,
+                    phan_tram_vat=phan_tram_vat,
+                    gia_nhap=gia_nhap,
+                    ghi_chu_hang_hoa=str(item.query.ghi_chu_hang_hoa).strip()
+                    if item.query.ghi_chu_hang_hoa
+                    else "",
+                    ma_hoa_don=str(item.query.ma_hoa_don).strip()
+                    if item.query.ma_hoa_don
+                    else "",
+                    thanh_tien=to_float_or_none(item.query.thanh_tien),
+                )
             )
-        )
         return
 
     by_source: dict[str, list[_Candidate]] = {}
@@ -236,14 +250,14 @@ def _allocate_one_product(
             result.lines.append(_build_line(item, candidate.stock, qty, config))
 
 
-def _select_shortage_representative(
+def _select_shortage_sources(
     candidates: list[_Candidate], source_key
-) -> tuple[_Candidate, str, float]:
-    """Choose one deterministic representative source for a shortage.
+) -> list[tuple[_Candidate, str, float]]:
+    """Return one display row for every positive source in a shortage.
 
-    Prefer the source with the largest positive stock total, then use the
-    normal source ranking for ties. The accounting row always comes from
-    the selected source.
+    Sources are ordered by their total positive stock, then by the normal
+    source ranking. If every source is empty, keep one deterministic zero-stock
+    source so the shortage still has a useful display row.
     """
 
     by_source: dict[str, list[_Candidate]] = {}
@@ -251,18 +265,28 @@ def _select_shortage_representative(
         by_source.setdefault(candidate.stock.nguon, []).append(candidate)
 
     stock_by_source = {
-        nguon: sum(max(0.0, candidate.stock.ton_co_the_nhap) for candidate in rows)
-        for nguon, rows in by_source.items()
+        source: sum(max(0.0, candidate.stock.ton_co_the_nhap) for candidate in rows)
+        for source, rows in by_source.items()
     }
-    representative_source = sorted(
-        by_source,
-        key=lambda nguon: (-stock_by_source[nguon],) + source_key(nguon),
-    )[0]
-    best = sorted(
-        by_source[representative_source],
-        key=lambda candidate: (-candidate.score, candidate.stock.row_index),
-    )[0]
-    return best, representative_source, stock_by_source[representative_source]
+    positive_sources = [source for source, stock in stock_by_source.items() if stock > 0]
+    selected_sources = positive_sources or [sorted(by_source, key=source_key)[0]]
+    selected_sources.sort(
+        key=lambda source: (-stock_by_source[source],) + source_key(source)
+    )
+
+    rows: list[tuple[_Candidate, str, float]] = []
+    for source in selected_sources:
+        source_candidates = [
+            candidate
+            for candidate in by_source[source]
+            if candidate.stock.ton_co_the_nhap > 0
+        ] or by_source[source]
+        best = sorted(
+            source_candidates,
+            key=lambda candidate: (-candidate.score, candidate.stock.row_index),
+        )[0]
+        rows.append((best, source, stock_by_source[source]))
+    return rows
 
 
 def _allocate_within_source(
