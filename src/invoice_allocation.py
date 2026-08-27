@@ -166,9 +166,8 @@ def _allocate_one_product(
 
     if need > total_ton + TOLERANCE:
         thieu = need - total_ton
-        best = sorted(item.candidates, key=lambda c: (-c.score, c.stock.row_index))[0]
-        nguon_list = sorted({c.stock.nguon for c in usable}) or sorted(
-            {c.stock.nguon for c in item.candidates}
+        best, representative_source, representative_stock = (
+            _select_shortage_representative(item.candidates, source_key)
         )
         gia_ban = to_float_or_none(item.query.gia_ban)
         phan_tram_vat = best.stock.thue_vat
@@ -188,8 +187,8 @@ def _allocate_one_product(
                 ten_vat=item.mapping.ten_truoc_vat or best.stock.ten_vat_kiot,
                 ten_ke_toan=best.stock.ten_ke_toan,
                 dvt=best.stock.don_vi_tinh,
-                nguon=", ".join(nguon_list),
-                ton_con_nhap=total_ton,
+                nguon=representative_source,
+                ton_con_nhap=representative_stock,
                 phan_tram_vat=phan_tram_vat,
                 gia_nhap=gia_nhap,
                 ghi_chu_hang_hoa=str(item.query.ghi_chu_hang_hoa).strip()
@@ -235,6 +234,35 @@ def _allocate_one_product(
     for nguon, take in plan:
         for candidate, qty in _allocate_within_source(by_source[nguon], take):
             result.lines.append(_build_line(item, candidate.stock, qty, config))
+
+
+def _select_shortage_representative(
+    candidates: list[_Candidate], source_key
+) -> tuple[_Candidate, str, float]:
+    """Choose one deterministic representative source for a shortage.
+
+    Prefer the source with the largest positive stock total, then use the
+    normal source ranking for ties. The accounting row always comes from
+    the selected source.
+    """
+
+    by_source: dict[str, list[_Candidate]] = {}
+    for candidate in candidates:
+        by_source.setdefault(candidate.stock.nguon, []).append(candidate)
+
+    stock_by_source = {
+        nguon: sum(max(0.0, candidate.stock.ton_co_the_nhap) for candidate in rows)
+        for nguon, rows in by_source.items()
+    }
+    representative_source = sorted(
+        by_source,
+        key=lambda nguon: (-stock_by_source[nguon],) + source_key(nguon),
+    )[0]
+    best = sorted(
+        by_source[representative_source],
+        key=lambda candidate: (-candidate.score, candidate.stock.row_index),
+    )[0]
+    return best, representative_source, stock_by_source[representative_source]
 
 
 def _allocate_within_source(

@@ -205,7 +205,52 @@ def test_shortage_when_total_stock_is_not_enough():
     assert len(result.shortages) == 1
     shortage = result.shortages[0]
     assert (shortage.sl_yeu_cau, shortage.tong_ton, shortage.thieu) == (200, 170, 30)
+    assert (shortage.nguon, shortage.ton_con_nhap) == ("MAY", 100)
+    assert "," not in shortage.nguon
     assert shortage.ghi_chu == "Không đủ số lượng tồn"
+
+
+def test_shortage_representative_uses_largest_total_stock_from_one_source():
+    stocks = [
+        make_stock_row(2, "MAY", "VAT01", "KT1", "Unit", 60),
+        make_stock_row(3, "MAY", "VAT01", "KT2", "Unit", 50),
+        make_stock_row(4, "CAO", "VAT01", "KT3", "Unit", 100),
+    ]
+
+    result = _run([SourceLookupInput(1, ma_sp="SP01", sl=250)], _mappings(), stocks)
+
+    shortage = result.shortages[0]
+    assert (shortage.tong_ton, shortage.thieu) == (210, 40)
+    assert (shortage.nguon, shortage.ton_con_nhap) == ("MAY", 110)
+    assert shortage.ten_ke_toan in {"KT1", "KT2"}
+
+
+def test_shortage_representative_uses_existing_priority_when_stock_is_equal():
+    stocks = [
+        make_stock_row(2, "CAO", "VAT01", "KT1", "Unit", 60),
+        make_stock_row(3, "MAY", "VAT01", "KT2", "Unit", 60),
+    ]
+
+    result = _run([SourceLookupInput(1, ma_sp="SP01", sl=150)], _mappings(), stocks)
+
+    shortage = result.shortages[0]
+    assert (shortage.nguon, shortage.ton_con_nhap) == ("MAY", 60)
+    assert shortage.ten_ke_toan == "KT2"
+
+
+def test_shortage_with_multiple_zero_stock_sources_uses_priority():
+    stocks = [
+        make_stock_row(2, "CAO", "VAT01", "KT1", "Unit", 0),
+        make_stock_row(3, "MAY", "VAT01", "KT2", "Unit", 0),
+    ]
+
+    result = _run([SourceLookupInput(1, ma_sp="SP01", sl=10)], _mappings(), stocks)
+
+    shortage = result.shortages[0]
+    assert (shortage.tong_ton, shortage.thieu) == (0, 10)
+    assert (shortage.nguon, shortage.ton_con_nhap) == ("MAY", 0)
+    assert shortage.ten_ke_toan == "KT2"
+    assert result.skipped_non_positive_stock_count == 2
 
 
 # 7. Mã hàng không tồn tại ---------------------------------------------------
