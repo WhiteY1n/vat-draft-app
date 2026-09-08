@@ -59,11 +59,6 @@ vietqr:
       bank_id: "MB"           # mã ngân hàng VietQR (MB Bank)
       account_no: "606266688888"
       account_name: "CONG TY CO PHAN THUONG MAI XUAT NHAP KHAU TKS GROUP"
-    vc_express:
-      label: "MSB VC"
-      bank_id: "MSB"          # mã ngân hàng VietQR (MSB - Hàng Hải)
-      account_no: "464848"
-      account_name: "CONG TY CO PHAN THUONG MAI VC EXPRESS"
     mb_vc_ex:
       label: "MB VC EX"
       bank_id: "MB"           # mã ngân hàng VietQR (MBBank)
@@ -155,7 +150,7 @@ vietqr:
     "SHC": shc
     "TKS THẤP": tks_group
     "TKSCAO": tks_group
-    "VC": vc_express
+    "VC": mb_vc_ex
 
   # Mapping "Đơn vị bán hàng" trên hóa đơn PDF -> tài khoản công ty tương ứng.
   # Dùng cho chức năng tải hóa đơn PDF lên trang Tạo QR: app trích tên đơn vị
@@ -167,7 +162,7 @@ vietqr:
     - match: ["TKS GROUP"]
       accounts: [vcb_tks_group, tks_group]
     - match: ["VC EXPRESS"]
-      accounts: [vc_express, mb_vc_ex]
+      accounts: [mb_vc_ex]
     - match: ["LUCKY HOUSE"]
       accounts: [lucky_house]
     - match: ["SHC"]
