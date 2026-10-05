@@ -49,7 +49,7 @@ if refresh_clicked:
     with st.spinner("⏳ Đang tải dữ liệu từ Google Sheets..."):
         try:
             from src.session import load_workbook_from_sheets
-            load_workbook_from_sheets(config)
+            load_workbook_from_sheets(config, force=True)
             st.rerun()
         except Exception as e:
             st.error(f"❌ Lỗi cập nhật: {e}")
