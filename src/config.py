@@ -18,6 +18,33 @@ import yaml
 _DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "settings.yaml"
 
 
+# Vị trí cột (chữ cái Excel A, B, C...) của từng trường dữ liệu trong Google Sheets.
+# Có thể override trong settings.yaml (gop_vat_columns / khop_ma_columns).
+DEFAULT_GOP_VAT_COLUMNS: dict[str, str] = {
+    "NGUỒN": "A",
+    "Mã kiot đại diện": "B",
+    "Tên kiot đại diện": "C",
+    "MÃ VAT KIOT": "D",
+    "TÊN VAT KIOT": "E",
+    "TÊN KẾ TOÁN": "F",
+    "Đơn vị tính": "G",
+    "TỒN ĐẦU NGÀY": "I",
+    "GIÁ BÁN": "J",
+    "THUẾ VAT": "K",
+    "THUẾ NK": "L",
+    "TỔNG THUẾ MẤT": "M",
+    "TỔNG ĐANG NHÁP": "N",
+    "TỒN CÓ THỂ NHÁP": "O",
+}
+
+DEFAULT_KHOP_MA_COLUMNS: dict[str, str] = {
+    "Mã SP": "A",
+    "Tên SP": "B",
+    "Mã vat kiot": "J",
+    "Tên trước (Giá đầu  - Giá cuối) (VAT)": "K",
+}
+
+
 @dataclass
 class NameMatchWeights:
     """Trọng số so khớp tên kế toán (mục 10.1 CLAUDE.md)."""
@@ -86,6 +113,8 @@ class AppConfig:
     sheet_id: str = "1dNabQaiob7CMozrqjA746uV-atHWJi8gbG6L-I0yrmU"
     gid_gop_vat: int = 0
     gid_khop_ma: int = 1192158065
+    gop_vat_columns: dict[str, str] = field(default_factory=lambda: dict(DEFAULT_GOP_VAT_COLUMNS))
+    khop_ma_columns: dict[str, str] = field(default_factory=lambda: dict(DEFAULT_KHOP_MA_COLUMNS))
 
     raw: dict[str, Any] = field(default_factory=dict)
 
@@ -176,5 +205,7 @@ def load_config(config_path: str | None = None) -> AppConfig:
         ),
         gid_gop_vat=int(os.environ.get("GID_GOP_VAT", raw.get("gid_gop_vat", 0))),
         gid_khop_ma=int(os.environ.get("GID_KHOP_MA", raw.get("gid_khop_ma", 1192158065))),
+        gop_vat_columns={**DEFAULT_GOP_VAT_COLUMNS, **(raw.get("gop_vat_columns") or {})},
+        khop_ma_columns={**DEFAULT_KHOP_MA_COLUMNS, **(raw.get("khop_ma_columns") or {})},
         raw=raw,
     )

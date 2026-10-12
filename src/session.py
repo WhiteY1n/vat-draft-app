@@ -47,6 +47,8 @@ def load_workbook_from_sheets(config: AppConfig) -> tuple[WorkbookCheckResult, s
         sheet_id=config.sheet_id,
         gid_gop_vat=config.gid_gop_vat,
         gid_khop_ma=config.gid_khop_ma,
+        gop_vat_columns=config.gop_vat_columns,
+        khop_ma_columns=config.khop_ma_columns,
     )
     st.session_state["current_workbook"] = workbook
     st.session_state["sheets_timestamp"] = timestamp

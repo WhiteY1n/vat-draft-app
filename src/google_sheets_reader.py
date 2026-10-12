@@ -16,6 +16,7 @@ from typing import Tuple
 import pandas as pd
 import requests
 
+from src.config import DEFAULT_GOP_VAT_COLUMNS, DEFAULT_KHOP_MA_COLUMNS
 from src.excel_reader import SheetCheckSummary, WorkbookCheckResult
 from src.models import DataWarning, MappingRow, StockRow
 from src.normalization import (
@@ -48,7 +49,9 @@ class GoogleSheetsReader:
         return _EXPORT_URL.format(sheet_id=self.sheet_id, gid=gid)
 
     def _fetch_csv(self, gid: int, sheet_name: str, skiprows: int = 0) -> pd.DataFrame:
-        """Fetch một sheet, trả về DataFrame. Raise Exception nếu thất bại."""
+        """Fetch một sheet, trả về DataFrame KHÔNG có header (cột đánh số 0,1,2...,
+        tương ứng A,B,C,...). `skiprows` là số dòng đầu (tiêu đề) cần bỏ qua.
+        Raise Exception nếu thất bại."""
         url = self._build_url(gid)
         try:
             resp = requests.get(url, timeout=15)
@@ -64,20 +67,19 @@ class GoogleSheetsReader:
             )
 
         try:
-            df = pd.read_csv(StringIO(resp.text), skiprows=skiprows)
+            df = pd.read_csv(StringIO(resp.text), header=None, skiprows=skiprows)
         except pd.errors.ParserError as exc:
             raise Exception(f"❌ Lỗi parse CSV '{sheet_name}': {exc}")
 
-        # Chuẩn hóa tên cột: strip whitespace
-        df.columns = df.columns.str.strip()
         logger.info("✅ Fetch '%s' thành công: %d dòng", sheet_name, len(df))
         return df
 
     def fetch_all(self) -> Tuple[pd.DataFrame, pd.DataFrame, str]:
         """Fetch cả 2 sheets. Trả về (df_gop_vat, df_khop_ma, timestamp)."""
-        df_gop_vat = self._fetch_csv(self.gid_gop_vat, "Gộp VAT", skiprows=0)
-        # Sheet Khớp mã: row 0 là tiêu đề tổng 'CHECK TỒN BÊN SHEET VAT', row 1 mới là header thực
-        df_khop_ma = self._fetch_csv(self.gid_khop_ma, "Khớp mã", skiprows=1)
+        # Gộp VAT: dòng 1 là header. Khớp mã: dòng 1 là tiêu đề tổng
+        # 'CHECK TỒN BÊN SHEET VAT', dòng 2 mới là header thực -> dữ liệu từ dòng 3.
+        df_gop_vat = self._fetch_csv(self.gid_gop_vat, "Gộp VAT", skiprows=1)
+        df_khop_ma = self._fetch_csv(self.gid_khop_ma, "Khớp mã", skiprows=2)
         timestamp = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         return df_gop_vat, df_khop_ma, timestamp
 
@@ -87,64 +89,38 @@ class GoogleSheetsReader:
 # ---------------------------------------------------------------------------
 
 
-def _get_col(row: pd.Series, aliases: dict[str, list[str]], canonical: str):
-    """Tìm giá trị của cột `canonical` trong row, hỗ trợ alias."""
-    # Tìm tên cột thực tế từ index của row (tên cột trong DataFrame)
-    # Đã được resolve ở bước build_header_map
-    key = row.index.get_loc if hasattr(row.index, "get_loc") else None
-    return row.get(canonical)
+def column_letter_to_index(letter: str) -> int:
+    """'A' -> 0, 'B' -> 1, ..., 'Z' -> 25, 'AA' -> 26."""
+    text = str(letter).strip().upper()
+    if not text.isalpha():
+        raise ValueError(f"Tên cột Excel không hợp lệ: '{letter}'")
+    index = 0
+    for ch in text:
+        index = index * 26 + (ord(ch) - ord("A") + 1)
+    return index - 1
 
 
-def _build_col_map(df_columns: list[str], aliases: dict[str, list[str]]) -> dict[str, str]:
-    """Tạo mapping: tên chuẩn → tên cột thực trong DataFrame."""
-    folded = {col.strip().lower(): col for col in df_columns}
-    result: dict[str, str] = {}
-    for canonical, alias_list in aliases.items():
-        candidates = [canonical.strip().lower()] + [a.strip().lower() for a in alias_list]
-        for cand in candidates:
-            if cand in folded:
-                result[canonical] = folded[cand]
-                break
-    return result
+def _build_col_map(
+    df: pd.DataFrame, letters: dict[str, str]
+) -> tuple[dict[str, int], list[str]]:
+    """Tên chuẩn -> chỉ số cột (0-based). Trả thêm danh sách cột nằm ngoài sheet."""
+    col_map: dict[str, int] = {}
+    missing: list[str] = []
+    for canonical, letter in letters.items():
+        idx = column_letter_to_index(letter)
+        if idx < df.shape[1]:
+            col_map[canonical] = idx
+        else:
+            missing.append(f"{canonical} (cột {str(letter).strip().upper()})")
+    return col_map, missing
 
 
-_GOP_VAT_ALIASES: dict[str, list[str]] = {
-    "NGUỒN": ["nguồn", "nguon", "cty"],  # thực tế cột là CTY
-    "Mã kiot đại diện": ["mã kiot đại diện", "ma kiot dai dien"],
-    "Tên kiot đại diện": ["tên kiot đại diện", "ten kiot dai dien"],
-    "MÃ VAT KIOT": ["mã vat kiot", "ma vat kiot"],
-    "TÊN VAT KIOT": ["tên vat kiot", "ten vat kiot"],
-    "TÊN KẾ TOÁN": ["tên kế toán", "ten ke toan", "tên hàng", "tên kt", "ten kt"],  # thực tế cột là Tên hàng
-    "Đơn vị tính": ["đơn vị tính", "don vi tinh", "đvt"],
-    "TỒN ĐẦU NGÀY": ["tồn đầu ngày", "ton dau ngay"],
-    "GIÁ BÁN": ["giá bán", "gia ban"],
-    "THUẾ VAT": ["thuế vat", "thue vat"],
-    "THUẾ NK": ["thuế nk", "thue nk"],
-    "TỔNG THUẾ MẤT": ["tổng thuế mất", "tong thue mat"],
-    "TỔNG ĐANG NHÁP": ["tổng đang nháp", "tong dang nhap"],
-    "TỒN CÓ THỂ NHÁP": ["tồn có thể nháp", "ton co the nhap"],
-}
-
-_KHOP_MA_ALIASES: dict[str, list[str]] = {
-    "Mã SP": ["mã sp", "ma sp"],
-    "Tên SP": ["tên sp", "ten sp"],
-    "Mã vat kiot": ["mã vat kiot", "ma vat kiot", "mã vat kiot"],  # thực tế là 'MÃ VAT KIOT' (viết hoa)
-    "Tên trước (Giá đầu  - Giá cuối) (VAT)": [
-        "tên trước (giá đầu  - giá cuối) (vat)",
-        "tên trước (giá đầu - giá cuối) (vat)",
-        "ten truoc (gia dau - gia cuoi) (vat)",
-        "tên vat kiot",  # thực tế cột thứ 4 trong sheet
-    ],
-}
-
-
-def _parse_gop_vat(df: pd.DataFrame):
+def _parse_gop_vat(df: pd.DataFrame, letters: dict[str, str]):
     """Parse DataFrame Gộp VAT → (stock_rows, summary, errors, warnings)."""
-    col_map = _build_col_map(list(df.columns), _GOP_VAT_ALIASES)
+    col_map, missing = _build_col_map(df, letters)
     errors: list[str] = []
-    missing = [c for c in _GOP_VAT_ALIASES if c not in col_map]
     if missing:
-        errors.append(f"Sheet 'Gộp VAT' thiếu cột bắt buộc: {', '.join(missing)}")
+        errors.append(f"Sheet 'Gộp VAT' thiếu cột (ngoài phạm vi sheet): {', '.join(missing)}")
         return [], SheetCheckSummary(sheet_name="Gộp VAT"), errors, []
 
     summary = SheetCheckSummary(sheet_name="Gộp VAT")
@@ -158,7 +134,7 @@ def _parse_gop_vat(df: pd.DataFrame):
 
         def gcol(canonical: str):
             actual = col_map.get(canonical)
-            return row.get(actual) if actual else None
+            return row.iloc[actual] if actual is not None else None
 
         summary.total_data_rows += 1
 
@@ -218,13 +194,12 @@ def _parse_gop_vat(df: pd.DataFrame):
     return stock_rows, summary, errors, warnings
 
 
-def _parse_khop_ma(df: pd.DataFrame):
+def _parse_khop_ma(df: pd.DataFrame, letters: dict[str, str]):
     """Parse DataFrame Khớp mã → (mapping_rows, summary, errors)."""
-    col_map = _build_col_map(list(df.columns), _KHOP_MA_ALIASES)
+    col_map, missing = _build_col_map(df, letters)
     errors: list[str] = []
-    missing = [c for c in _KHOP_MA_ALIASES if c not in col_map]
     if missing:
-        errors.append(f"Sheet 'Khớp mã' thiếu cột bắt buộc: {', '.join(missing)}")
+        errors.append(f"Sheet 'Khớp mã' thiếu cột (ngoài phạm vi sheet): {', '.join(missing)}")
         return [], SheetCheckSummary(sheet_name="Khớp mã"), errors
 
     summary = SheetCheckSummary(sheet_name="Khớp mã")
@@ -236,7 +211,7 @@ def _parse_khop_ma(df: pd.DataFrame):
 
         def gcol(canonical: str):
             actual = col_map.get(canonical)
-            return row.get(actual) if actual else None
+            return row.iloc[actual] if actual is not None else None
 
         summary.total_data_rows += 1
 
@@ -280,7 +255,11 @@ def _parse_khop_ma(df: pd.DataFrame):
 
 
 def fetch_workbook_from_sheets(
-    sheet_id: str, gid_gop_vat: int, gid_khop_ma: int
+    sheet_id: str,
+    gid_gop_vat: int,
+    gid_khop_ma: int,
+    gop_vat_columns: dict[str, str] | None = None,
+    khop_ma_columns: dict[str, str] | None = None,
 ) -> tuple[WorkbookCheckResult, str]:
     """Fetch 2 sheets từ Google Sheets, parse thành WorkbookCheckResult.
 
@@ -290,6 +269,8 @@ def fetch_workbook_from_sheets(
     Raises:
         Exception: Nếu fetch hoặc parse thất bại.
     """
+    gop_vat_columns = gop_vat_columns or DEFAULT_GOP_VAT_COLUMNS
+    khop_ma_columns = khop_ma_columns or DEFAULT_KHOP_MA_COLUMNS
     reader = GoogleSheetsReader(
         sheet_id=sheet_id,
         gid_gop_vat=gid_gop_vat,
@@ -297,8 +278,8 @@ def fetch_workbook_from_sheets(
     )
     df_gop_vat, df_khop_ma, timestamp = reader.fetch_all()
 
-    stock_rows, gop_vat_summary, gop_vat_errors, warnings = _parse_gop_vat(df_gop_vat)
-    mapping_rows, khop_ma_summary, khop_ma_errors = _parse_khop_ma(df_khop_ma)
+    stock_rows, gop_vat_summary, gop_vat_errors, warnings = _parse_gop_vat(df_gop_vat, gop_vat_columns)
+    mapping_rows, khop_ma_summary, khop_ma_errors = _parse_khop_ma(df_khop_ma, khop_ma_columns)
 
     all_errors = gop_vat_errors + khop_ma_errors
 

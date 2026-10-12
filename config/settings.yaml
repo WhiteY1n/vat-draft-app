@@ -43,6 +43,31 @@ sheet_id: "1dNabQaiob7CMozrqjA746uV-atHWJi8gbG6L-I0yrmU"
 gid_gop_vat: 0
 gid_khop_ma: 1192158065
 
+# Vị trí cột trong Google Sheets, theo chữ cái cột Excel (A, B, C...). App đọc theo
+# vị trí chứ không theo tên tiêu đề, nên đổi tên header không ảnh hưởng; nhưng nếu
+# chèn/xóa/đổi chỗ cột trong sheet thì phải cập nhật lại các chữ cái bên dưới.
+gop_vat_columns:
+  NGUỒN: A
+  "Mã kiot đại diện": B
+  "Tên kiot đại diện": C
+  "MÃ VAT KIOT": D
+  "TÊN VAT KIOT": E
+  "TÊN KẾ TOÁN": F
+  "Đơn vị tính": G
+  "TỒN ĐẦU NGÀY": I
+  "GIÁ BÁN": J
+  "THUẾ VAT": K
+  "THUẾ NK": L
+  "TỔNG THUẾ MẤT": M
+  "TỔNG ĐANG NHÁP": N
+  "TỒN CÓ THỂ NHÁP": O
+
+khop_ma_columns:
+  "Mã SP": A
+  "Tên SP": B
+  "Mã vat kiot": J
+  "Tên trước (Giá đầu  - Giá cuối) (VAT)": K
+
 # VietQR — tạo mã QR thanh toán cho hóa đơn (dùng Quick Link API, không cần API key).
 # template: kiểu ảnh QR do VietQR cung cấp (compact2 | compact | qr_only | print).
 vietqr:
