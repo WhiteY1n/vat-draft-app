@@ -15,6 +15,9 @@ from src.excel_reader import WorkbookCheckResult
 from src.google_sheets_reader import fetch_workbook_from_sheets
 
 
+_SHEETS_CACHE_TTL_SECONDS = 600
+
+
 def get_config() -> AppConfig:
     return load_config()
 
@@ -34,8 +37,33 @@ def get_sheets_timestamp() -> str | None:
     return st.session_state.get("sheets_timestamp")
 
 
-def load_workbook_from_sheets(config: AppConfig) -> tuple[WorkbookCheckResult, str]:
-    """Fetch và parse dữ liệu từ Google Sheets, lưu vào session_state.
+@st.cache_resource(ttl=_SHEETS_CACHE_TTL_SECONDS, show_spinner=False)
+def _fetch_workbook_shared(
+    sheet_id: str,
+    gid_gop_vat: int,
+    gid_khop_ma: int,
+    gop_vat_columns: dict[str, str],
+    khop_ma_columns: dict[str, str],
+) -> tuple[WorkbookCheckResult, str]:
+    """Fetch + parse một lần, dùng chung cho mọi phiên (tránh mỗi phiên tải lại và giữ 1 bản ~66MB).
+
+    Workbook chỉ được đọc, không sửa. Exception không bị cache nên lần sau tự thử lại.
+    """
+    return fetch_workbook_from_sheets(
+        sheet_id=sheet_id,
+        gid_gop_vat=gid_gop_vat,
+        gid_khop_ma=gid_khop_ma,
+        gop_vat_columns=gop_vat_columns,
+        khop_ma_columns=khop_ma_columns,
+    )
+
+
+def load_workbook_from_sheets(
+    config: AppConfig, force: bool = False
+) -> tuple[WorkbookCheckResult, str]:
+    """Lấy dữ liệu Google Sheets (cache dùng chung), lưu vào session_state.
+
+    `force=True` (nút cập nhật thủ công) bỏ cache và tải lại.
 
     Returns:
         (workbook, timestamp)
@@ -43,12 +71,14 @@ def load_workbook_from_sheets(config: AppConfig) -> tuple[WorkbookCheckResult, s
     Raises:
         Exception: Nếu fetch hoặc parse thất bại.
     """
-    workbook, timestamp = fetch_workbook_from_sheets(
-        sheet_id=config.sheet_id,
-        gid_gop_vat=config.gid_gop_vat,
-        gid_khop_ma=config.gid_khop_ma,
-        gop_vat_columns=config.gop_vat_columns,
-        khop_ma_columns=config.khop_ma_columns,
+    if force:
+        _fetch_workbook_shared.clear()
+    workbook, timestamp = _fetch_workbook_shared(
+        config.sheet_id,
+        config.gid_gop_vat,
+        config.gid_khop_ma,
+        config.gop_vat_columns,
+        config.khop_ma_columns,
     )
     st.session_state["current_workbook"] = workbook
     st.session_state["sheets_timestamp"] = timestamp

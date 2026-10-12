@@ -63,7 +63,7 @@ refresh_clicked = render_feature_top_bar(active="xu_ly_hoa_don", meta=meta, conf
 if refresh_clicked:
     with st.spinner("⏳ Đang tải dữ liệu từ Google Sheets..."):
         try:
-            load_workbook_from_sheets(config)
+            load_workbook_from_sheets(config, force=True)
             st.rerun()
         except Exception as e:
             st.error(f"❌ Lỗi cập nhật: {e}")
